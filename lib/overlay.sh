@@ -64,6 +64,7 @@ write_mkinitcpio_dropin() {
   local dropin=/etc/mkinitcpio.conf.d/05-omacachy-hooks.conf
   local baseline
   local -a hooks new
+  local has_systemd=0
 
   if [[ ! -r $OMACACHY_BASELINE_FILE ]]; then
     warn "Skipping mkinitcpio baseline drop-in (no baseline recorded)"
@@ -72,6 +73,34 @@ write_mkinitcpio_dropin() {
 
   baseline=$(<"$OMACACHY_BASELINE_FILE")
   read -r -a hooks <<<"$baseline"
+
+  # CachyOS ships busybox hooks (udev, block, filesystems, fsck, ...).
+  # sd-btrfs-overlayfs (required by Omarchy's Limine UKI flow) needs the
+  # systemd hook. If the baseline has no systemd hook, convert the busybox
+  # equivalents so sd-btrfs-overlayfs can run.
+  if [[ " ${hooks[*]} " == *" systemd "* ]]; then
+    has_systemd=1
+  fi
+
+  if (( !has_systemd )); then
+    local -a converted=()
+    local h
+    for h in "${hooks[@]}"; do
+      case $h in
+        udev) converted+=(systemd) ;;
+        block) converted+=(systemd-block) ;;
+        filesystems) converted+=(systemd-filesystems) ;;
+        fsck) converted+=(systemd-fsck) ;;
+        keyboard) converted+=(systemd-keyboard) ;;
+        keymap) converted+=(systemd-keymap) ;;
+        consolefont) converted+=(systemd-consolefont) ;;
+        vconsole) converted+=(systemd-vconsole) ;;
+        *) converted+=("$h") ;;
+      esac
+    done
+    hooks=("${converted[@]}")
+    info "mkinitcpio: converted CachyOS busybox hooks to systemd hooks (sd-btrfs-overlayfs needs them)"
+  fi
 
   if [[ " ${hooks[*]} " != *" plymouth "* ]]; then
     local h inserted=0
