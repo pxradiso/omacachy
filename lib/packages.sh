@@ -124,7 +124,7 @@ install_omarchy_runtime() {
     info "would install the omarchy package from the stable repository"
     return 0
   fi
-  run pacman -S --needed --noconfirm --overwrite '/usr/share/omarchy/*' omarchy ||
+  run pacman -S --needed --noconfirm --overwrite '*' omarchy ||
     die "Could not install the omarchy package from the stable repository"
 }
 
@@ -139,7 +139,7 @@ resolve_package_set() {
   RESOLVED_PACKAGES=''
   for ((attempt = 1; attempt <= attempt_max; attempt++)); do
     if out=$(pacman -S --print --print-format '%n %v' --needed --noconfirm \
-      omarchy "${todo[@]}" 2>&1); then
+      --overwrite '*' omarchy "${todo[@]}" 2>&1); then
       RESOLVED_PACKAGES=$out
       PACKAGES=("${todo[@]}")
       return 0
@@ -203,7 +203,7 @@ install_package_set() {
   if (( DRY_RUN )); then
     info "would install $count packages"
   else
-    run pacman -S --needed --noconfirm --overwrite '/usr/share/omarchy/*' \
+    run pacman -S --needed --noconfirm --overwrite '*' \
       omarchy "${PACKAGES[@]}" ||
       die "Package installation failed. See /var/log/omacachy/install.log"
   fi
