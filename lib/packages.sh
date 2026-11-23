@@ -226,8 +226,18 @@ install_package_set() {
 
     # Output is visible in real time (downloads, progress bars) and also
     # captured in PACMAN_OUT for error parsing below.
-    if pacman_install -- "$pkg"; then
+    if pacman_install "$pkg"; then
       ((++installed_ok % 25 == 0)) && info "Installed $installed_ok packages so far..."
+      continue
+    fi
+
+    # pacman crashed (e.g. "corrupted size vs. prev_size", SIGABRT): do not
+    # parse its partial output — treat the current package as an unexpected
+    # error and skip it so the install can continue.
+    if [[ $PACMAN_OUT =~ corrupted\ size|Aborted|core\ dumped|Segmentation\ fault ]]; then
+      warn "pacman crashed while installing $pkg:"
+      printf '%s\n' "$PACMAN_OUT" | sed 's/^/  /' >&2
+      skipped+=("$pkg: pacman crashed")
       continue
     fi
 
