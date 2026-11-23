@@ -69,15 +69,24 @@ tui_banner() {
 }
 
 # tui_yes_no "question" yes|no -> 0 for yes, 1 for no.
-# Yes is always the affirmative answer; No is the safe default.
+# Yes is always listed before No (so the user can't miss-read the order).
+# Uses gum choose instead of gum confirm because confirm sometimes exits
+# silently without showing the prompt in non-ideal terminal setups.
 tui_yes_no() {
-  local prompt=$1 default=$2
+  local prompt=$1 default=$2 choice
   if (( ASSUME_YES )); then return 0; fi
   if [[ $default == yes ]]; then
-    tui_gum confirm --prompt.foreground="$OMACACHY_GREEN" --default=true "$prompt"
+    choice=$(tui_gum choose --header "$prompt" \
+      --cursor.foreground="$OMACACHY_GREEN" \
+      --selected.foreground="$OMACACHY_GREEN" \
+      Yes No)
   else
-    tui_gum confirm --prompt.foreground="$OMACACHY_GREEN" --default=false "$prompt"
+    choice=$(tui_gum choose --header "$prompt" \
+      --cursor.foreground="$OMACACHY_GREEN" \
+      --selected.foreground="$OMACACHY_GREEN" \
+      --selected No Yes No)
   fi
+  [[ $choice == Yes ]]
 }
 
 tui_abort() {
