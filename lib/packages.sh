@@ -199,6 +199,7 @@ install_package_set() {
   local -a provs=()
   local -i attempt=0
   local -i attempt_max=300
+  local -i installed_ok=0
 
   while (( ${#todo[@]} > 0 )); do
     ((++attempt <= attempt_max)) || die "Too many resolution attempts for packages"
@@ -206,7 +207,8 @@ install_package_set() {
     pkg="${todo[0]}"
     todo=("${todo[@]:1}")
 
-    if out=$(pacman -S --needed --noconfirm --overwrite '*' -- "$pkg" 2>&1); then
+    if out=$(pacman -S --needed --noconfirm --overwrite '*' -- "$pkg" < /dev/null 2>&1); then
+      ((++installed_ok % 25 == 0)) && info "Installed $installed_ok packages so far..."
       continue
     fi
 
@@ -224,7 +226,7 @@ install_package_set() {
         provider="${provs[0]}"
         info "Multi-provider for $lib: installing $provider explicitly (CachyOS-first), skipping $pkg"
         skipped+=("$pkg: multi-provider, chose $provider")
-        if out=$(pacman -S --needed --noconfirm --overwrite '*' -- "$provider" 2>&1); then
+        if out=$(pacman -S --needed --noconfirm --overwrite '*' -- "$provider" < /dev/null 2>&1); then
           continue
         fi
         warn "Could not install $provider (provider for $lib):"
