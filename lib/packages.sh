@@ -128,12 +128,12 @@ install_omarchy_runtime() {
     die "Could not install the omarchy package from the stable repository"
 }
 
-# resolve_package_set [extra...]: dry-run the transaction, dropping entries the
-# repositories cannot satisfy (version pin drift, package removed upstream, ...)
-# and record why. Returns 0 with the installable set in PACKAGES.
+# resolve_package_set: only used for --dry-run. Does a --print pass and
+# drops unsatisfiable entries. Real installation uses install_package_set's
+# iterative error-parsing (see below), which also handles multi-provider.
 resolve_package_set() {
   local -a todo=("${PACKAGES[@]}")
-  local out attempt name dep pkg
+  local out attempt name
   local -i attempt_max=50
 
   RESOLVED_PACKAGES=''
@@ -153,6 +153,97 @@ resolve_package_set() {
       continue
     fi
 
+    die "Could not resolve the package transaction:
+$out"
+  done
+
+  die "Package resolution did not converge after $attempt_max attempts"
+}
+
+# normalize_pkg_name: strip version/epoch from a pacman conflict token
+# (e.g. "pipewire-jack-1:1.6.11-2" -> "pipewire-jack").
+normalize_pkg_name() {
+  local n=$1
+  n=${n%%:*}      # strip epoch (1:...)
+  n=${n%%-*-*}    # strip -pkgver-pkgrel (but keep hyphens in name)
+  printf '%s\n' "$n"
+}
+
+install_package_set() {
+  step "packages: install the Omarchy desktop set"
+  load_skip_policy
+
+  if [[ ! -r /usr/share/omarchy/install/omarchy-base.packages ]]; then
+    die "Omarchy package lists are missing (/usr/share/omarchy/install/omarchy-base.packages). Did the omarchy package install correctly?"
+  fi
+
+  build_package_set
+  info "Considering ${#PACKAGES[@]} packages from Omarchy's stable lists"
+
+  if (( DRY_RUN )); then
+    info "would install ${#PACKAGES[@]} packages"
+    resolve_package_set
+    count=$(printf '%s\n' "$RESOLVED_PACKAGES" | grep -c . || true)
+    info "Dry run: transaction resolves to $count packages"
+    return 0
+  fi
+
+  # Install the real transaction, resolving multi-provider prompts and
+  # package conflicts iteratively (pacman --noconfirm alone does not
+  # disambiguate multi-provider like libtree-sitter.so or libunibilium.so,
+  # and cannot resolve jack vs pipewire-jack conflicts).
+  local -a todo=("${PACKAGES[@]}")
+  local out lib provider a b to_remove name dep pkg
+  local -i attempt=0
+  local -i attempt_max=60
+
+  while (( ${#todo[@]} > 0 )); do
+    ((++attempt <= attempt_max)) || die "Too many resolution attempts for packages"
+
+    if out=$(pacman -S --needed --noconfirm --overwrite '*' omarchy "${todo[@]}" 2>&1); then
+      success "Omarchy desktop set installed"
+      report_skipped_packages
+      return 0
+    fi
+
+    # Multi-provider: "There are N providers available for libX.so=..."
+    if [[ $out =~ providers\ available\ for\ ([^[:space:]=]+) ]]; then
+      lib=${BASH_REMATCH[1]}
+      provider=$(pacman -Ssq "^${lib}$" 2>/dev/null | head -1)
+      if [[ -n $provider ]]; then
+        info "Multi-provider for $lib: adding $provider explicitly (CachyOS-first)"
+        todo+=("$provider")
+        continue
+      fi
+    fi
+
+    # Conflict: "pkgA-... and pkgB-... are in conflict (reason)"
+    if [[ $out =~ ::[[:space:]]([a-z0-9_-]+)([^[:space:]]*)[[:space:]]and[[:space:]]([a-z0-9_-]+)([^[:space:]]*)[[:space:]]are[[:space:]]in[[:space:]]conflict ]]; then
+      a=$(normalize_pkg_name "${BASH_REMATCH[1]}${BASH_REMATCH[2]}")
+      b=$(normalize_pkg_name "${BASH_REMATCH[3]}${BASH_REMATCH[4]}")
+      # Remove the one NOT already installed; prefer keeping what's on disk.
+      if pacman -Q "$a" >/dev/null 2>&1; then
+        to_remove="$b"
+      else
+        to_remove="$a"
+      fi
+      info "Conflict $a vs $b: removing $to_remove to proceed (CachyOS-first)"
+      run pacman -R --noconfirm -- "$to_remove" 2>/dev/null || true
+      todo=($(printf '%s\n' "${todo[@]}" | grep -vxF -- "$to_remove"))
+      skip_add "$to_remove" "conflicts with ${a} (CachyOS-first)"
+      continue
+    fi
+
+    # Target not found
+    if [[ $out =~ target\ not\ found:\ ([^[:space:]]+) ]]; then
+      name=${BASH_REMATCH[1]}
+      todo=($(printf '%s\n' "${todo[@]}" | grep -vxF -- "$name"))
+      skip_add "$name" "not available in the configured repositories"
+      warn "Skipping $name: not available in the configured repositories"
+      continue
+    fi
+
+    # Unable to satisfy dependency
     if [[ $out =~ unable\ to\ satisfy\ dependency\ \'([^\']+)\'\ required\ by\ ([^[:space:]]+) ]]; then
       dep=${BASH_REMATCH[1]}
       pkg=${BASH_REMATCH[2]}
@@ -169,46 +260,11 @@ resolve_package_set() {
       continue
     fi
 
-    if [[ $out =~ ::[[:space:]]([^[:space:]]+)[[:space:]]and[[:space:]]([^[:space:]]+)[[:space:]]are\ in\ conflict ]]; then
-      name=${BASH_REMATCH[2]}
-      todo=($(printf '%s\n' "${todo[@]}" | grep -vxF -- "$name"))
-      skip_add "$name" "conflicts with ${BASH_REMATCH[1]}"
-      warn "Skipping $name: conflicts with ${BASH_REMATCH[1]}"
-      continue
-    fi
-
-    die "Could not resolve the package transaction:
+    die "Could not install the package set:
 $out"
   done
 
-  die "Package resolution did not converge after $attempt_max attempts"
-}
-
-install_package_set() {
-  step "packages: install the Omarchy desktop set"
-  load_skip_policy
-
-  if [[ ! -r /usr/share/omarchy/install/omarchy-base.packages ]]; then
-    die "Omarchy package lists are missing (/usr/share/omarchy/install/omarchy-base.packages). Did the omarchy package install correctly?"
-  fi
-
-  build_package_set
-  info "Considering ${#PACKAGES[@]} packages from Omarchy's stable lists"
-  resolve_package_set
-
-  local count
-  count=$(printf '%s\n' "$RESOLVED_PACKAGES" | grep -c . || true)
-  info "Transaction resolves to $count packages"
-
-  if (( DRY_RUN )); then
-    info "would install $count packages"
-  else
-    run pacman -S --needed --noconfirm --overwrite '*' \
-      omarchy "${PACKAGES[@]}" ||
-      die "Package installation failed. See /var/log/omacachy/install.log"
-  fi
-
-  report_skipped_packages
+  die "Package installation did not complete (all entries removed without success)"
 }
 
 report_skipped_packages() {
