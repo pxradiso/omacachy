@@ -88,13 +88,8 @@ write_mkinitcpio_dropin() {
     for h in "${hooks[@]}"; do
       case $h in
         udev) converted+=(systemd) ;;
-        block) converted+=(systemd-block) ;;
-        filesystems) converted+=(systemd-filesystems) ;;
-        fsck) converted+=(systemd-fsck) ;;
-        keyboard) converted+=(systemd-keyboard) ;;
-        keymap) converted+=(systemd-keymap) ;;
-        consolefont) converted+=(systemd-consolefont) ;;
-        vconsole) converted+=(systemd-vconsole) ;;
+        # block, filesystems, fsck exist in both busybox and systemd;
+        # there are no systemd-block/systemd-filesystems hooks.
         *) converted+=("$h") ;;
       esac
     done
