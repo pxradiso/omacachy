@@ -1,0 +1,113 @@
+#!/bin/bash
+# OmaCachy - Omarchy on CachyOS.
+set -Eeuo pipefail
+
+SELF=$(readlink -f "${BASH_SOURCE[0]}")
+ROOT=$(cd "$(dirname "$SELF")/.." && pwd)
+export OMACACHY_REPO="$ROOT"
+
+# shellcheck source=../lib/common.sh
+source "$ROOT/lib/common.sh"
+# shellcheck source=../lib/identity.sh
+source "$ROOT/lib/identity.sh"
+# shellcheck source=../lib/detect.sh
+source "$ROOT/lib/detect.sh"
+# shellcheck source=../lib/desktops.sh
+source "$ROOT/lib/desktops.sh"
+# shellcheck source=../lib/greeter.sh
+source "$ROOT/lib/greeter.sh"
+# shellcheck source=../lib/tui.sh
+source "$ROOT/lib/tui.sh"
+# shellcheck source=../lib/repo.sh
+source "$ROOT/lib/repo.sh"
+# shellcheck source=../lib/packages.sh
+source "$ROOT/lib/packages.sh"
+# shellcheck source=../lib/overlay.sh
+source "$ROOT/lib/overlay.sh"
+# shellcheck source=../lib/system.sh
+source "$ROOT/lib/system.sh"
+# shellcheck source=../lib/user.sh
+source "$ROOT/lib/user.sh"
+# shellcheck source=../lib/finalize.sh
+source "$ROOT/lib/finalize.sh"
+# shellcheck source=../lib/doctor.sh
+source "$ROOT/lib/doctor.sh"
+# shellcheck source=../lib/install.sh
+source "$ROOT/lib/install.sh"
+
+usage() {
+  cat <<EOF
+OmaCachy $OMACACHY_VERSION - Omarchy on CachyOS
+
+Usage: omacachy <command> [options]
+
+Commands:
+  install     install/refresh Omarchy on this CachyOS system
+  update      update through Omarchy's own updater (omarchy update)
+  doctor      read-only health checks
+  status      show what is installed
+  version     print the OmaCachy version
+  help        this help
+
+Run 'omacachy install --help' for the install options.
+EOF
+}
+
+require_omarchy() {
+  pkg_installed omarchy || die "Omarchy is not installed. Run: sudo omacachy install"
+}
+
+update_main() {
+  require_omarchy
+  if (( EUID == 0 )); then
+    if [[ -n ${SUDO_USER:-} && ${SUDO_USER:-} != root ]]; then
+      exec runuser -u "$SUDO_USER" -- omarchy update "$@"
+    fi
+    die "Run 'omarchy update' as your desktop user, not as root"
+  fi
+  exec omarchy update "$@"
+}
+
+status_main() {
+  local version
+  version=$(pkg_version omarchy 2>/dev/null || true)
+
+  printf 'OmaCachy:        %s\n' "$OMACACHY_VERSION"
+  printf 'Channel:         %s\n' "$OMACACHY_CHANNEL"
+  printf 'Omarchy:         %s\n' "${version:-not installed}"
+  printf 'Repository:      %s\n' "$OMACACHY_OMARCHY_REPO"
+  printf 'Hostname:        %s\n' "$(hostname 2>/dev/null || echo unknown)"
+  if [[ -r /etc/os-release ]]; then
+    printf 'os-release:      %s\n' "$(sed -n 's/^PRETTY_NAME=//p' /etc/os-release | head -1)"
+  fi
+  printf 'State:           %s\n' "$OMACACHY_STATE_FILE"
+  if [[ -r $OMACACHY_STATE_FILE ]]; then
+    sed 's/^/  /' "$OMACACHY_STATE_FILE"
+  fi
+  printf 'Overlay:         %s\n' "$OMACACHY_OVERLAY_DIR"
+  [[ -d $OMACACHY_OVERLAY_DIR ]] && printf '  (%s files)\n' "$(find "$OMACACHY_OVERLAY_DIR" -type f | wc -l)"
+  printf 'mkinitcpio base: %s\n' "$( [[ -r $OMACACHY_BASELINE_FILE ]] && cat "$OMACACHY_BASELINE_FILE" || echo 'not recorded')"
+
+  if pkg_installed limine-mkinitcpio-hook; then
+    printf 'Bootloader:      limine-mkinitcpio-hook installed\n'
+  else
+    printf 'Bootloader:      Limine not installed\n'
+  fi
+}
+
+command=${1:-help}
+shift || true
+
+case $command in
+  install) install_main "$@" ;;
+  update) update_main "$@" ;;
+  doctor) doctor_main "$@" ;;
+  status) status_main ;;
+  version | --version | -V) echo "OmaCachy $OMACACHY_VERSION" ;;
+  help | --help | -h) usage ;;
+  *)
+    error "Unknown command: $command"
+    usage >&2
+    exit 1
+    ;;
+esac

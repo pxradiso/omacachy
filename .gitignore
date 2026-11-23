@@ -1,0 +1,13 @@
+# Editor / OS noise
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Logs and local test artifacts
+*.log
+/tmp/
+
+# Test fixtures that are fetched/generated locally
+tests/.cache/
+tests/testroot/
