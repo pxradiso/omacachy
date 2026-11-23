@@ -84,18 +84,26 @@ ensure_omarchy_key() {
 
   [[ -d /etc/pacman.d/gnupg ]] || pacman-key --init
 
-  local keyserver
-  for keyserver in keys.openpgp.org keyserver.ubuntu.com; do
-    if run pacman-key --recv-keys "$OMACACHY_OMARCHY_KEY" --keyserver "$keyserver"; then
-      break
-    fi
-    warn "Could not fetch the Omarchy key from $keyserver, trying the next keyserver"
-  done
+  # Download the public key over HTTPS (non-interactive) instead of
+  # pacman-key --recv-keys, which can block waiting on a keyserver.
+  local keyring_tmp
+  keyring_tmp=$(mktemp)
+  if ! curl -fsSL \
+    "https://keys.openpgp.org/pks/lookup?op=get&search=0x${OMACACHY_OMARCHY_KEY}" \
+    -o "$keyring_tmp" 2>/dev/null; then
+    rm -f "$keyring_tmp"
+    die "Could not download the Omarchy signing key from keys.openpgp.org"
+  fi
+
+  run pacman-key --add "$keyring_tmp" ||
+    die "pacman-key --add failed for the Omarchy signing key"
+  rm -f "$keyring_tmp"
 
   pacman-key --list-keys "$OMACACHY_OMARCHY_KEY" >/dev/null 2>&1 ||
-    die "Omarchy signing key $OMACACHY_OMARCHY_KEY could not be fetched"
+    die "Omarchy signing key $OMACACHY_OMARCHY_KEY could not be imported"
 
-  run pacman-key --lsign-key "$OMACACHY_OMARCHY_KEY"
+  run pacman-key --lsign-key "$OMACACHY_OMARCHY_KEY" ||
+    die "pacman-key --lsign-key failed for the Omarchy signing key"
   success "Omarchy key trusted"
 }
 

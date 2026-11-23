@@ -24,7 +24,21 @@ tui_open() {
 
 tui_close() {
   (( TUI_ACTIVE )) || return 0
+  # Restore the terminal after gum (it puts the tty in raw/alternate mode).
+  stty sane 2>/dev/null || true
   TUI_ACTIVE=0
+}
+
+tui_logo() {
+  local g="$OMACACHY_GREEN"
+  tui_gum style --foreground="$g" --bold '
+   _______   _       _   _             
+  |__   __| | |     | | (_)            
+     | | ___| |_ ___| |_ _ _ __   __ _ 
+     | |/ _ \ __/ _ \ __| | '\''_ \ / _` | 
+     | |  __/ ||  __/ |_| | | | | (_| |
+     |_|\___|\__\___|\__|_|_| |_|\__,_|'
+  tui_gum style --foreground="$g" "OmaCachy  Omarchy on CachyOS"
 }
 
 # tui_gum ARGS...: run gum; stdin stays as-is (the script's stdin), which is
@@ -34,15 +48,17 @@ tui_gum() {
 }
 
 tui_banner() {
+  # Fullscreen look: clear the screen first, then the framed banner.
+  clear >/dev/tty 2>/dev/null || true
+  tui_logo
   tui_gum style \
     --foreground="$OMACACHY_GREEN" \
     --border=normal \
     --border-foreground="$OMACACHY_GREEN" \
-    --padding="1 2" \
-    --margin="1" \
-    "OmaCachy - Omarchy on CachyOS" \
-    "" \
+    --padding="2 4" \
+    --margin="2" \
     "Install Omarchy on your existing CachyOS system." \
+    "" \
     "CachyOS keeps its kernel, drivers, pacman.conf, mirrors and" \
     "/etc/os-release. Omarchy keeps its own update flow ('omarchy update')."
 }
