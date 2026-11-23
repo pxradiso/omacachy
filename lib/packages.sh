@@ -221,6 +221,9 @@ install_package_set() {
     pkg="${todo[0]}"
     todo=("${todo[@]:1}")
 
+    # Never install '--' or an empty token (they are not real packages).
+    [[ -z $pkg || $pkg == "--" ]] && continue
+
     # Output is visible in real time (downloads, progress bars) and also
     # captured in PACMAN_OUT for error parsing below.
     if pacman_install -- "$pkg"; then
