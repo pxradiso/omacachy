@@ -181,106 +181,124 @@ install_package_set() {
   info "Considering ${#PACKAGES[@]} packages from Omarchy's stable lists"
 
   if (( DRY_RUN )); then
-    info "would install ${#PACKAGES[@]} packages"
     resolve_package_set
+    local count
     count=$(printf '%s\n' "$RESOLVED_PACKAGES" | grep -c . || true)
     info "Dry run: transaction resolves to $count packages"
     return 0
   fi
 
-  # Install the real transaction, resolving multi-provider prompts and
-  # package conflicts iteratively (pacman --noconfirm alone does not
-  # disambiguate multi-provider like libtree-sitter.so or libunibilium.so,
-  # and cannot resolve jack vs pipewire-jack conflicts).
+  # Install packages one at a time for robustness: multi-provider prompts
+  # (nvim, libtree-sitter.so, libunibilium.so, qt6-multimedia-backend) and
+  # version conflicts (hyprland vs omarchy-hyprland-titlebars) cannot be
+  # resolved by --noconfirm alone. Each failure is parsed and handled
+  # individually so one bad package does not block the whole set.
   local -a todo=("${PACKAGES[@]}")
-  local out lib provider a b to_remove name dep pkg
+  local -a skipped=()
+  local pkg out lib provider name dep
+  local -a provs=()
   local -i attempt=0
-  local -i attempt_max=60
-  local -a providers=()
+  local -i attempt_max=300
 
   while (( ${#todo[@]} > 0 )); do
     ((++attempt <= attempt_max)) || die "Too many resolution attempts for packages"
 
-    info "Installing ${#todo[@]} packages (attempt $attempt): ${todo[*]}"
+    pkg="${todo[0]}"
+    todo=("${todo[@]:1}")
 
-    if out=$(pacman -S --needed --noconfirm --overwrite '*' omarchy "${todo[@]}" 2>&1); then
-      success "Omarchy desktop set installed"
-      report_skipped_packages
-      return 0
+    if out=$(pacman -S --needed --noconfirm --overwrite '*' -- "$pkg" 2>&1); then
+      continue
     fi
-
-    warn "pacman returned non-zero:"
-    printf '%s\n' "$out" | sed 's/^/  /' >&2
 
     # Multi-provider: "There are N providers available for nvim:" or
     # "There are N providers available for libtree-sitter.so=0.26-64:"
-    if [[ $out =~ providers\ available\ for\ ([^[:space:]:\n]+) ]]; then
+    if [[ $out =~ providers\ available\ for\ ([^[:space:]:]+) ]]; then
       lib=${BASH_REMATCH[1]}
-      # Extract the numbered provider candidates from pacman's output.
-      providers=()
+      provs=()
       while IFS= read -r line; do
-        if [[ $line =~ ^[[:space:]]*[0-9]+\)[[:space:]]+([a-z0-9_-]+) ]]; then
-          providers+=("${BASH_REMATCH[1]}")
+        if [[ $line =~ ^[[:space:]]*[0-9]+\)[[:space:]]+([a-z0-9._+-]+) ]]; then
+          provs+=("${BASH_REMATCH[1]}")
         fi
       done <<< "$out"
-      if (( ${#providers[@]} > 0 )); then
-        provider=${providers[0]}
-        info "Multi-provider for $lib: adding $provider explicitly (CachyOS-first), dropping $lib"
-        todo=($(printf '%s\n' "${todo[@]}" | grep -vxF -- "$lib"))
-        todo+=("$provider")
-        skip_add "$lib" "multi-provider, chose $provider"
+      if (( ${#provs[@]} > 0 )); then
+        provider="${provs[0]}"
+        info "Multi-provider for $lib: installing $provider explicitly (CachyOS-first), skipping $pkg"
+        skipped+=("$pkg: multi-provider, chose $provider")
+        if out=$(pacman -S --needed --noconfirm --overwrite '*' -- "$provider" 2>&1); then
+          continue
+        fi
+        warn "Could not install $provider (provider for $lib):"
+        printf '%s\n' "$out" | sed 's/^/  /' >&2
+        skipped+=("$provider: provider install failed")
         continue
       fi
-    fi
-
-    # Conflict: "pkgA-... and pkgB-... are in conflict (reason)"
-    if [[ $out =~ ::[[:space:]]([a-z0-9_-]+)([^[:space:]]*)[[:space:]]and[[:space:]]([a-z0-9_-]+)([^[:space:]]*)[[:space:]]are[[:space:]]in[[:space:]]conflict ]]; then
-      a=$(normalize_pkg_name "${BASH_REMATCH[1]}${BASH_REMATCH[2]}")
-      b=$(normalize_pkg_name "${BASH_REMATCH[3]}${BASH_REMATCH[4]}")
-      # Remove the one NOT already installed; prefer keeping what's on disk.
-      if pacman -Q "$a" >/dev/null 2>&1; then
-        to_remove="$b"
-      else
-        to_remove="$a"
-      fi
-      info "Conflict $a vs $b: removing $to_remove to proceed (CachyOS-first)"
-      run pacman -R --noconfirm -- "$to_remove" 2>/dev/null || true
-      todo=($(printf '%s\n' "${todo[@]}" | grep -vxF -- "$to_remove"))
-      skip_add "$to_remove" "conflicts with ${a} (CachyOS-first)"
-      continue
     fi
 
     # Target not found
     if [[ $out =~ target\ not\ found:\ ([^[:space:]]+) ]]; then
       name=${BASH_REMATCH[1]}
-      todo=($(printf '%s\n' "${todo[@]}" | grep -vxF -- "$name"))
-      skip_add "$name" "not available in the configured repositories"
+      skipped+=("$name: not available in the configured repositories")
       warn "Skipping $name: not available in the configured repositories"
       continue
     fi
 
-    # Unable to satisfy dependency
-    if [[ $out =~ unable\ to\ satisfy\ dependency\ \'([^\']+)\'\ required\ by\ ([^[:space:]]+) ]]; then
-      dep=${BASH_REMATCH[1]}
-      pkg=${BASH_REMATCH[2]}
-      if printf '%s\n' "${todo[@]}" | grep -qxF -- "$pkg"; then
-        todo=($(printf '%s\n' "${todo[@]}" | grep -vxF -- "$pkg"))
-        skip_add "$pkg" "needs $dep"
-        warn "Skipping $pkg: it needs $dep, which the repositories do not provide"
+    # Unresolvable dependency: "unable to satisfy dependency 'X' required by Y"
+    # or "The following package cannot be upgraded due to unresolvable dependencies: Y"
+    if [[ $out =~ unable\ to\ satisfy\ dependency\ \'([^\']+)\'\ required\ by\ ([^[:space:]]+) ]] \
+       || [[ $out =~ cannot\ be\ upgraded\ due\ to\ unresolvable\ dependencies:[[:space:]]+([^[:space:]]+) ]]; then
+      if [[ ${BASH_REMATCH[1]:-} != "" && ${BASH_REMATCH[2]:-} != "" ]]; then
+        dep=${BASH_REMATCH[1]}
+        name=${BASH_REMATCH[2]}
       else
-        name=${dep%%=*}
-        todo=($(printf '%s\n' "${todo[@]}" | grep -vxF -- "$name"))
-        skip_add "$name" "required by $pkg"
-        warn "Skipping $name: required by $pkg and not installable"
+        dep=""
+        name=${BASH_REMATCH[1]}
       fi
+      skipped+=("$name: unresolvable dependency${dep:+ ($dep)}")
+      warn "Skipping $name${dep:+ ($dep)}: unresolvable dependency"
       continue
     fi
 
-    die "Could not install the package set:
-$out"
+    # Conflict: "pkgA and pkgB are in conflict (reason)"
+    if [[ $out =~ are[[:space:]]in[[:space:]]conflict ]]; then
+      skipped+=("$pkg: package conflict")
+      warn "Skipping $pkg: package conflict with another package"
+      continue
+    fi
+
+    warn "Unexpected pacman error for $pkg:"
+    printf '%s\n' "$out" | sed 's/^/  /' >&2
+    skipped+=("$pkg: unexpected pacman error")
+    continue
   done
 
-  die "Package installation did not complete (all entries removed without success)"
+  report_skipped_packages "${skipped[@]}"
+  success "Omarchy desktop set installed"
+}
+
+report_skipped_packages() {
+  local -a skipped=("${@}")
+  local p reason i
+
+  if (( ${#SKIP_REASON[@]} )); then
+    info "Intentionally not installing (CachyOS-first policy):"
+    for p in "${!SKIP_REASON[@]}"; do
+      printf '       - %-32s %s\n' "$p" "${SKIP_REASON[$p]}"
+    done | sort
+  fi
+
+  if (( ${#skipped[@]} )); then
+    warn "Not installed (will be retried on the next run):"
+    for i in "${!skipped[@]}"; do
+      printf '       - %-48s %s\n' "${skipped[$i]%%:*}" "${skipped[$i]#*:}"
+    done
+    cat >&2 <<EOF
+
+  These are upstream/repository drift, not omacachy decisions: Omarchy's
+  stable package set is usually rebuilt within days. Re-run:
+    sudo omacachy install
+  to pick them up once the repositories agree again.
+EOF
+  fi
 }
 
 report_skipped_packages() {
