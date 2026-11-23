@@ -30,15 +30,20 @@ tui_close() {
 }
 
 tui_logo() {
-  local g="$OMACACHY_GREEN"
-  tui_gum style --foreground="$g" --bold '
+  # Green bold ASCII logo printed with raw ANSI (gum mangles the backticks
+  # and apostrophes inside the Omarchy-style art).
+  local g=$'\033[1;38;2;158;206;106m' r=$'\033[0m'
+  printf '%b\n' "$g"
+  cat <<'EOF'
    _______   _       _   _             
   |__   __| | |     | | (_)            
      | | ___| |_ ___| |_ _ _ __   __ _ 
-     | |/ _ \ __/ _ \ __| | '\''_ \ / _` | 
+     | |/ _ \ __/ _ \ __| | '_ \ / _` |
      | |  __/ ||  __/ |_| | | | | (_| |
-     |_|\___|\__\___|\__|_|_| |_|\__,_|'
-  tui_gum style --foreground="$g" "OmaCachy  Omarchy on CachyOS"
+     |_|\___|\__\___|\__|_|_| |_|\__,_|
+EOF
+  printf '%b\n' "$r"
+  tui_gum style --foreground="$OMACACHY_GREEN" --bold "OmaCachy  Omarchy on CachyOS"
 }
 
 # tui_gum ARGS...: run gum; stdin stays as-is (the script's stdin), which is
@@ -49,7 +54,7 @@ tui_gum() {
 
 tui_banner() {
   # Fullscreen look: clear the screen first, then the framed banner.
-  clear >/dev/tty 2>/dev/null || true
+  clear >/dev/tty 2>/dev/null || clear 2>/dev/null || true
   tui_logo
   tui_gum style \
     --foreground="$OMACACHY_GREEN" \
