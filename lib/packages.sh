@@ -196,6 +196,7 @@ install_package_set() {
   local out lib provider a b to_remove name dep pkg
   local -i attempt=0
   local -i attempt_max=60
+  local -a providers=()
 
   while (( ${#todo[@]} > 0 )); do
     ((++attempt <= attempt_max)) || die "Too many resolution attempts for packages"
@@ -211,13 +212,23 @@ install_package_set() {
     warn "pacman returned non-zero:"
     printf '%s\n' "$out" | sed 's/^/  /' >&2
 
-    # Multi-provider: "There are N providers available for libX.so=..."
-    if [[ $out =~ providers\ available\ for\ ([^[:space:]=]+) ]]; then
+    # Multi-provider: "There are N providers available for nvim:" or
+    # "There are N providers available for libtree-sitter.so=0.26-64:"
+    if [[ $out =~ providers\ available\ for\ ([^[:space:]:\n]+) ]]; then
       lib=${BASH_REMATCH[1]}
-      provider=$(pacman -Ssq "^${lib}$" 2>/dev/null | head -1)
-      if [[ -n $provider ]]; then
-        info "Multi-provider for $lib: adding $provider explicitly (CachyOS-first)"
+      # Extract the numbered provider candidates from pacman's output.
+      providers=()
+      while IFS= read -r line; do
+        if [[ $line =~ ^[[:space:]]*[0-9]+\)[[:space:]]+([a-z0-9_-]+) ]]; then
+          providers+=("${BASH_REMATCH[1]}")
+        fi
+      done <<< "$out"
+      if (( ${#providers[@]} > 0 )); then
+        provider=${providers[0]}
+        info "Multi-provider for $lib: adding $provider explicitly (CachyOS-first), dropping $lib"
+        todo=($(printf '%s\n' "${todo[@]}" | grep -vxF -- "$lib"))
         todo+=("$provider")
+        skip_add "$lib" "multi-provider, chose $provider"
         continue
       fi
     fi
