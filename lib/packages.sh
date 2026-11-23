@@ -200,11 +200,16 @@ install_package_set() {
   while (( ${#todo[@]} > 0 )); do
     ((++attempt <= attempt_max)) || die "Too many resolution attempts for packages"
 
+    info "Installing ${#todo[@]} packages (attempt $attempt): ${todo[*]}"
+
     if out=$(pacman -S --needed --noconfirm --overwrite '*' omarchy "${todo[@]}" 2>&1); then
       success "Omarchy desktop set installed"
       report_skipped_packages
       return 0
     fi
+
+    warn "pacman returned non-zero:"
+    printf '%s\n' "$out" | sed 's/^/  /' >&2
 
     # Multi-provider: "There are N providers available for libX.so=..."
     if [[ $out =~ providers\ available\ for\ ([^[:space:]=]+) ]]; then
