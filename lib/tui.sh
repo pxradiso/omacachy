@@ -352,10 +352,11 @@ tui_run() {
       tui_frame "" \
         "Choose the default browser to install and set as default." \
         "" \
-        "Auto keeps the normal Omarchy choice (Chromium) when available."
+        "With preinstalled apps: Auto keeps the normal Omarchy choice (Chromium)." \
+        "With desktop only: Auto installs no extra browser."
       tui_measure
       tui_hint 'Up/Down: move   Enter: confirm   Ctrl+C: abort'
-      local browser_choice browser_status=0 browser_selected="Auto (Chromium)"
+      local browser_choice browser_status=0 browser_selected="Auto"
       case "$browser_sel" in
         chromium) browser_selected="Chromium" ;;
         firefox) browser_selected="Firefox" ;;
@@ -373,7 +374,7 @@ tui_run() {
           --selected.foreground "$GUM_DARK" \
           --selected.background "$GUM_GREEN" \
           --selected "$browser_selected" \
-          -- "Auto (Chromium)" "Chromium" "Firefox" "Brave" "Zen Browser" "Helium Browser" </dev/tty 2>&3) || browser_status=$?
+          -- "Auto" "Chromium" "Firefox" "Brave" "Zen Browser" "Helium Browser" </dev/tty 2>&3) || browser_status=$?
       (( browser_status == 0 )) || tui_abort
       case "$browser_choice" in
         "Chromium") browser_sel=chromium ;;
@@ -484,7 +485,7 @@ tui_run() {
         brave-bin) summary+=("Browser        Brave") ;;
         zen-browser) summary+=("Browser        Zen Browser") ;;
         helium-browser) summary+=("Browser        Helium Browser") ;;
-        *) summary+=("Browser        Auto (Chromium)") ;;
+        *) if (( apps_sel == 0 )); then summary+=("Browser        Auto (Chromium)"); else summary+=("Browser        None (desktop only)"); fi ;;
       esac
     fi
     if (( detect_de == 0 )); then
@@ -556,7 +557,7 @@ tui_run() {
       brave-bin) summary_text+=("  Browser         Brave") ;;
       zen-browser) summary_text+=("  Browser         Zen Browser") ;;
       helium-browser) summary_text+=("  Browser         Helium Browser") ;;
-      *) summary_text+=("  Browser         Auto (Chromium)") ;;
+      *) if (( NO_APPS )); then summary_text+=("  Browser         None (desktop only)"); else summary_text+=("  Browser         Auto (Chromium)"); fi ;;
     esac
   fi
   if (( detect_de == 0 )); then

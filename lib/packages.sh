@@ -26,18 +26,25 @@ OMACACHY_BROWSER_CHOICES=(chromium firefox brave-bin zen-browser helium-browser)
 # so a minimal install still has Hyprland, the shell, the terminal, fonts,
 # audio, networking, the file-manager integration and the Omarchy CLI.
 OMARCHY_APP_PACKAGES=(
+  1password-beta
+  1password-cli
   aether
   alacritty
   chromium
   cliamp
   discord
   disktree-bin
+  docker
+  docker-buildx
+  docker-compose
+  dotnet-runtime
   evince
   gliff
   gnome-disk-utility
   herdr
   hype
   imv
+  kdenlive
   libreoffice-fresh
   localsend
   meld
@@ -46,8 +53,11 @@ OMARCHY_APP_PACKAGES=(
   moonlight-qt
   mpv
   mpv-mpris
+  nano
+  nano-syntax-highlighting
   nautilus
   nautilus-python
+  obs-studio
   obsidian
   omacalc
   omacut
@@ -59,9 +69,15 @@ OMARCHY_APP_PACKAGES=(
   sushi
   superwhisper-bin
   system-config-printer
+  tldr
   tobi-try
   ttf-ia-writer
   typora
+  ufw-docker
+  usage
+  vi
+  vim
+  xournalpp
 )
 
 OMACACHY_BROWSER_PACKAGES=(chromium firefox brave-bin zen-browser helium-browser)
@@ -103,12 +119,43 @@ load_skip_policy() {
       SKIP_REASON[$p]="TUXEDO hardware not detected"
     done
   fi
+  if (( ! IS_ASUS )); then
+    for p in asusctl asdcontrol asus-proart-p14-speaker-firmware; do
+      SKIP_REASON[$p]="ASUS hardware not detected"
+    done
+  fi
+  if (( ! IS_APPLE_T2 )); then
+    for p in apple-bcm-firmware-fetcher apple-t2-audio-config linux-t2 linux-t2-headers t2fanrd; do
+      SKIP_REASON[$p]="Apple T2 hardware not detected"
+    done
+  fi
+  if (( ! IS_DELL_XPS )); then
+    for p in dell-xps-touchpad-haptics dell-xps13-sidecar-amps linux-firmware-cirrus-dx13260; do
+      SKIP_REASON[$p]="Dell XPS hardware not detected"
+    done
+  fi
+  if [[ $(uname -m) != x86_64 ]] || ! grep -qi intel /proc/cpuinfo 2>/dev/null; then
+    for p in intel-ipu7-camera intel-lpmd intel-media-driver libva-intel-driver vpl-gpu-rt vulkan-intel; do
+      SKIP_REASON[$p]="Intel hardware not detected"
+    done
+  fi
+  if ! lspci -nn 2>/dev/null | grep -qi broadcom; then
+    SKIP_REASON[broadcom-wl-dkms]="Broadcom Wi-Fi not detected"
+  fi
+  if ! lspci -nn 2>/dev/null | grep -qi 'marvell'; then
+    SKIP_REASON[linux-firmware-marvell]="Marvell hardware not detected"
+  fi
 
   # CachyOS (chwd) owns the power-profiles daemon; Omarchy's copy conflicts
   SKIP_REASON[omarchy-power-profiles-daemon]="CachyOS (chwd) owns the power-profiles daemon"
 
   if (( NO_APPS )); then
+    local selected_browser=${OMACACHY_BROWSER:-auto}
     for p in "${OMARCHY_APP_PACKAGES[@]}"; do
+      # Respect an explicit browser choice even in --no-apps mode.
+      if [[ $selected_browser != auto && $p == "$selected_browser" ]]; then
+        continue
+      fi
       SKIP_REASON[$p]="--no-apps"
     done
   fi
@@ -177,12 +224,15 @@ build_package_set() {
     PACKAGES+=("$p")
   done < <(read_omarchy_packages)
 
-  # Ensure selected browser is present when apps are installed.
-  if (( ! NO_APPS )) && [[ -n $selected_browser ]]; then
-    case " ${PACKAGES[*]} " in
-      *" $selected_browser "*) ;;
-      *) PACKAGES+=("$selected_browser") ;;
-    esac
+  # Ensure selected browser is present. In --no-apps mode, keep only the
+  # explicitly chosen browser (or auto fallback) and skip other app bloat.
+  if [[ -n $selected_browser ]]; then
+    if (( ! NO_APPS )) || [[ ${OMACACHY_BROWSER:-auto} != auto ]]; then
+      case " ${PACKAGES[*]} " in
+        *" $selected_browser "*) ;;
+        *) PACKAGES+=("$selected_browser") ;;
+      esac
+    fi
   fi
 }
 
