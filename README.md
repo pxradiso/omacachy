@@ -18,6 +18,7 @@ the machine is **Omarchy**: Omarchy's packages, configs, CLI and update flow.
 CachyOS keeps what makes it CachyOS: its kernel, its `chwd` driver stack, its
 `pacman.conf`, mirrors and keyrings.
 
+> [!CAUTION]
 > **Beta software.** OmaCachy is still in beta and may contain bugs. Use it at your own risk.
 > Back up your data and system before running it. pxradiso is not responsible for any damage,
 > data loss, boot issues, or other problems caused by using this project.
