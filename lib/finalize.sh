@@ -5,6 +5,84 @@
 if [[ -n ${_OMACACHY_FINALIZE:-} ]]; then return 0; fi
 _OMACACHY_FINALIZE=1
 
+OMACACHY_ENV_PATCH=/usr/local/lib/omacachy/patch-omarchy-env
+OMACACHY_ENV_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-env.hook
+
+install_omacachy_command() {
+  local bin=/usr/local/bin/omacachy
+  local target="$OMACACHY_REPO/bin/omacachy"
+
+  [[ -x $target ]] || {
+    warn "omacachy command not installed: $target is missing"
+    return 0
+  }
+
+  if (( DRY_RUN )); then
+    info "would symlink $bin -> $target"
+    return 0
+  fi
+
+  mkdir -p /usr/local/bin
+  ln -sfn "$target" "$bin"
+  success "Installed omacachy command: $bin"
+}
+
+patch_omarchy_fastfetch_env() {
+  local f
+
+  if (( DRY_RUN )); then
+    info "would ensure omarchy-i18n/omarchy-language default OMARCHY_PATH"
+    return 0
+  fi
+
+  for f in /usr/bin/omarchy-i18n /usr/bin/omarchy-language; do
+    [[ -f $f ]] || continue
+    grep -q 'OMARCHY_PATH:=/usr/share/omarchy' "$f" && continue
+    backup_file "$f" "$(basename "$f")"
+    sed -i '/^set -euo pipefail$/a : "${OMARCHY_PATH:=/usr/share/omarchy}"' "$f"
+    success "Patched $f: defaults OMARCHY_PATH for fastfetch/non-login shells"
+  done
+}
+
+install_omarchy_env_guard() {
+  if (( DRY_RUN )); then
+    info "would install $OMACACHY_ENV_PATCH and $OMACACHY_ENV_HOOK"
+    return 0
+  fi
+
+  install -d -m 0755 "$(dirname "$OMACACHY_ENV_PATCH")"
+  cat >"$OMACACHY_ENV_PATCH" <<'EOF'
+#!/bin/bash
+# Installed by OmaCachy.
+# omarchy-i18n/omarchy-language use OMARCHY_PATH with set -u; fastfetch command
+# modules may run without that env, so provide a safe default.
+set -eu
+for f in /usr/bin/omarchy-i18n /usr/bin/omarchy-language; do
+  [[ -f $f ]] || continue
+  grep -q 'OMARCHY_PATH:=/usr/share/omarchy' "$f" && continue
+  sed -i '/^set -euo pipefail$/a : "${OMARCHY_PATH:=/usr/share/omarchy}"' "$f"
+  echo "OmaCachy: patched $(basename "$f") with default OMARCHY_PATH"
+done
+EOF
+  chmod 0755 "$OMACACHY_ENV_PATCH"
+
+  install -d -m 0755 /etc/pacman.d/hooks
+  cat >"$OMACACHY_ENV_HOOK" <<'EOF'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = omarchy
+
+[Action]
+Description = Patching Omarchy scripts for fastfetch env (OmaCachy)
+When = PostTransaction
+Exec = /usr/local/lib/omacachy/patch-omarchy-env
+EOF
+  chmod 0644 "$OMACACHY_ENV_HOOK"
+  info "Omarchy env guard installed (survives omarchy update)"
+}
+
 finalize_install() {
   step "finalize: default session and recorded state"
 
@@ -20,6 +98,10 @@ finalize_install() {
     warn "sddm.service is not installed; Omarchy expects SDDM as the display manager"
   fi
   run systemctl set-default graphical.target
+
+  patch_omarchy_fastfetch_env
+  install_omarchy_env_guard
+  install_omacachy_command
 
   write_state OMACACHY_VERSION "$OMACACHY_VERSION"
   write_state OMACACHY_INSTALLED_AT "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
