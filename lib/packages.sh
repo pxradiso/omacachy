@@ -393,8 +393,12 @@ install_package_set() {
       continue
     fi
 
-    warn "Unexpected pacman error for $pkg:"
-    printf '%s\n' "$PACMAN_OUT" | sed 's/^/  /' >&2
+    warn "Unexpected pacman error for $pkg (rc=$rc):"
+    if [[ -n $PACMAN_OUT ]]; then
+      printf '%s\n' "$PACMAN_OUT" | sed 's/^/  /' >&2
+    else
+      warn "  (no pacman output captured)"
+    fi
     skipped+=("$pkg: unexpected pacman error")
     continue
   done
