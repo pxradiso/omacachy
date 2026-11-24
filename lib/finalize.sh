@@ -11,6 +11,8 @@ OMACACHY_PROVISION_PATCH=/usr/local/lib/omacachy/patch-omarchy-provision
 OMACACHY_PROVISION_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-provision.hook
 OMACACHY_VERSION_CHANNEL_PATCH=/usr/local/lib/omacachy/patch-omarchy-version-channel
 OMACACHY_VERSION_CHANNEL_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-version-channel.hook
+OMACACHY_FASTFETCH_PATCH=/usr/local/lib/omacachy/patch-omarchy-fastfetch
+OMACACHY_FASTFETCH_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-fastfetch.hook
 
 install_omacachy_command() {
   local bin=/usr/local/bin/omacachy
@@ -239,6 +241,74 @@ Exec = /usr/local/lib/omacachy/patch-omarchy-env
 EOF
   chmod 0644 "$OMACACHY_ENV_HOOK"
   info "Omarchy env guard installed (survives omarchy update)"
+}
+
+patch_omarchy_fastfetch_config() {
+  local f=/etc/fastfetch/config.jsonc
+  [[ -f $f ]] || return 0
+  grep -q 'OmaCachy fastfetch OS identity' "$f" && return 0
+
+  if (( DRY_RUN )); then
+    info "would patch fastfetch config to show CachyOS identity on OmaCachy"
+    return 0
+  fi
+
+  backup_file "$f" "$(basename "$f")"
+  python3 - <<'PY'
+from pathlib import Path
+p = Path('/etc/fastfetch/config.jsonc')
+s = p.read_text()
+old = '"text": "version=$(omarchy-version) && echo \\"Omarchy $version\\""'
+new = '"text": "ver=$(omarchy-version 2>/dev/null); . /etc/os-release 2>/dev/null; name=${PRETTY_NAME:-${NAME:-CachyOS Linux}}; if [ \\"${ID:-}\\" = omarchy ]; then echo \\"Omarchy ${ver}\\"; else echo \\"${name} / Omarchy ${ver}\\"; fi" # OmaCachy fastfetch OS identity'
+if old in s:
+    p.write_text(s.replace(old, new))
+    print('OmaCachy: patched fastfetch OS identity')
+PY
+}
+
+install_omarchy_fastfetch_guard() {
+  if (( DRY_RUN )); then
+    info "would install $OMACACHY_FASTFETCH_PATCH and $OMACACHY_FASTFETCH_HOOK"
+    return 0
+  fi
+
+  install -d -m 0755 "$(dirname "$OMACACHY_FASTFETCH_PATCH")"
+  cat >"$OMACACHY_FASTFETCH_PATCH" <<'EOF'
+#!/bin/bash
+# Installed by OmaCachy.
+# Keep fastfetch reporting CachyOS identity on OmaCachy systems.
+set -eu
+f=/etc/fastfetch/config.jsonc
+[[ -f $f ]] || exit 0
+grep -q 'OmaCachy fastfetch OS identity' "$f" && exit 0
+python3 - <<'PY'
+from pathlib import Path
+p = Path('/etc/fastfetch/config.jsonc')
+s = p.read_text()
+old = '"text": "version=$(omarchy-version) && echo \\"Omarchy $version\\""'
+new = '"text": "ver=$(omarchy-version 2>/dev/null); . /etc/os-release 2>/dev/null; name=${PRETTY_NAME:-${NAME:-CachyOS Linux}}; if [ \\"${ID:-}\\" = omarchy ]; then echo \\"Omarchy ${ver}\\"; else echo \\"${name} / Omarchy ${ver}\\"; fi" # OmaCachy fastfetch OS identity'
+if old in s:
+    p.write_text(s.replace(old, new))
+    print('OmaCachy: patched fastfetch OS identity')
+PY
+EOF
+  chmod 0755 "$OMACACHY_FASTFETCH_PATCH"
+
+  install -d -m 0755 /etc/pacman.d/hooks
+  cat >"$OMACACHY_FASTFETCH_HOOK" <<'EOF'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = omarchy-settings
+
+[Action]
+Description = Patching fastfetch OS identity for OmaCachy
+When = PostTransaction
+Exec = /usr/local/lib/omacachy/patch-omarchy-fastfetch
+EOF
+  chmod 0644 "$OMACACHY_FASTFETCH_HOOK"
+  info "Fastfetch OS identity guard installed (survives omarchy-settings update)"
 }
 
 
@@ -504,6 +574,8 @@ finalize_install() {
   install_omarchy_env_guard
   patch_omarchy_version_channel
   install_omarchy_version_channel_guard
+  patch_omarchy_fastfetch_config
+  install_omarchy_fastfetch_guard
   patch_omarchy_provision_user
   install_omarchy_provision_guard
   patch_omarchy_herdr_autostart
