@@ -3,7 +3,7 @@
 <br/>
 <br/>
 
-<img src="assets/omacachy.png" alt="OmaCachy Logo" width="400" />
+<img src="assets/omacachy.png" alt="OmaCachy Logo" width="600" />
 
 **Installs DHH's dotfiles ([Omarchy](https://omarchy.org)) on [CachyOS](https://cachyos.org).**
 
