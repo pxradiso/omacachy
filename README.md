@@ -13,6 +13,10 @@
 [![CachyOS](https://img.shields.io/badge/CachyOS-Fully%20Working%21-00a3e0?logo=cachyos&logoColor=white)](https://cachyos.org)
 </div>
 
+<div align="center">
+  <img src="assets/cachy.png" alt="CachyOS screenshot" width="900" />
+</div>
+
 OmaCachy is the installer (`./install.sh`) and this repository. What ends up on
 the machine is **Omarchy**: Omarchy's packages, configs, CLI and update flow.
 CachyOS keeps what makes it CachyOS: its kernel, its `chwd` driver stack, its
@@ -49,15 +53,6 @@ has a safe default; the last one asks for confirmation before `sudo` is
 requested. The screens use `gum`, the same toolkit as Omarchy's own installer,
 and the installer adds it if missing. Pass `--yes` (or set `OMACACHY_NO_TUI=1`)
 for an unattended install.
-
-<div align="center">
-  <img src="assets/cachy.png" alt="CachyOS screenshot" width="900" />
-</div>
-
-OmaCachy is the installer (`./install.sh`) and this repository. What ends up on
-the machine is **Omarchy**: Omarchy's packages, configs, CLI and update flow.
-CachyOS keeps what makes it CachyOS: its kernel, its `chwd` driver stack, its
-`pacman.conf`, mirrors and keyrings.
 
 > Upstream Omarchy 4.x is ISO-only: it ships a prebuilt btrfs image with Arch
 > packages. OmaCachy does not fork it, does not rebuild it and does not clone
