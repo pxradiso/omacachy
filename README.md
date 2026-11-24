@@ -102,7 +102,7 @@ The installer can be re-run at any time: every phase is idempotent.
   --boot MODE        refuse | register | convert | skip   (default: refuse)
   --with-nvidia      install Omarchy's NVIDIA packages instead of leaving the
                      GPU stack to CachyOS/chwd
-  --no-apps          desktop only: skip Omarchy's preinstalled applications
+  --no-apps          desktop only: skip Omarchy's preinstalled apps and optional bloat
   --remove-existing-de
                      remove the desktop environment/window manager already
                      installed (also asked by the interactive setup)
@@ -117,11 +117,13 @@ The installer can be re-run at any time: every phase is idempotent.
   -v, --verbose      extra output
 ```
 
-`--no-apps` skips a documented set of end-user applications, not the desktop:
-Chromium, LibreOffice, Obsidian, Nautilus, mpv, Evince, Pinta, LocalSend,
-Moonlight, the Omarchy apps (Omacalc, Omacut, Omawrite, Hype, Monologue,
-Signed, ...), Herdr, Gliff, Disktree and their helpers. The shell, terminal,
+`--no-apps` installs the desktop only: Omarchy's preinstalled end-user apps
+and optional bloat packages are skipped (browsers, office/media apps, Docker,
+1Password, editors/terminal extras like nano/vim/alacritty, Omarchy app bundle,
+web app launchers, etc.). The shell, Hyprland/SDDM session, terminal basics,
 fonts, audio, networking, input methods and Omarchy's CLI are always installed.
+In `--no-apps` mode, browser `Auto` installs no extra browser; pick a browser
+explicitly if you want one.
 
 ## What it changes
 
@@ -174,8 +176,10 @@ State, overlay and backups live in `/var/lib/omacachy`; logs in
   keyrings are never replaced with Arch's.
 - **No home-directory clobbering.** Existing files win; only missing paths are
   seeded.
-- **No second kernel.** `linux-omarchy`, `linux-t2` and Omarchy's NVIDIA
-  packages are skipped; CachyOS/chwd own the kernel and drivers.
+- **No second kernel, no unnecessary drivers.** `linux-omarchy`, `linux-t2`
+  and Omarchy's NVIDIA packages are skipped; CachyOS/chwd own the kernel and
+  drivers. Hardware-specific driver packages are also skipped when the matching
+  hardware is not detected (e.g. ASUS/TUXEDO/Dell XPS/Apple T2/Intel/Broadcom).
 - **No silent bootloader switch.** Boot order changes only with
   `--boot=convert`.
 
