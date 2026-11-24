@@ -123,6 +123,7 @@ bootstrap_repos() {
 system_upgrade() {
   step "pacman: full system upgrade (CachyOS stays current)"
   info "Omarchy is installed on top of an up-to-date CachyOS; this avoids a partial upgrade."
+  info "This can take a while, especially with many packages or slow mirrors; pacman output is in $OMACACHY_LOG_FILE."
   # CachyOS audio stack: pipewire-jack and jack2 conflict; pick one
   if pacman -Qgq jack2 2>/dev/null | grep -q . || pacman -Qgq pipewire-jack 2>/dev/null | grep -q .; then
     info "Resolving pipewire-jack / jack2 conflict (CachyOS-first: keeps jack2)"
