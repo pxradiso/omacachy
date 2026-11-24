@@ -54,6 +54,7 @@ OMARCHY_APP_PACKAGES=(
   mpv-mpris
   nano
   nano-syntax-highlighting
+  nautilus-python
   obs-studio
   obsidian
   omacalc
