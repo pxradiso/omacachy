@@ -4,14 +4,14 @@
 <br/>
 
 <img src="assets/omacachy.png" alt="OmaCachy Logo" width="600" />
+
 **Installs DHH's dotfiles ([Omarchy](https://omarchy.org)) on [CachyOS](https://cachyos.org).**
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg?logo=opensourceinitiative&logoColor=black)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/pxradiso/omacachy?color=blue&logo=github&logoColor=white)](https://github.com/pxradiso/omacachy/releases)
 [![Omarchy stable](https://img.shields.io/badge/Omarchy%20stable-4.5.x-2dd4bf?logo=omarchy&logoColor=%230f172a)](https://pkgs.omarchy.org/stable)
 [![CachyOS](https://img.shields.io/badge/CachyOS-Fully%20Working%21-00a3e0?logo=cachyos&logoColor=white)](https://cachyos.org)
 </div>
-
-<img src="assets/cachy.png" alt="CachyOS screenshot" width="900" />
 
 OmaCachy is the installer (`./install.sh`) and this repository. What ends up on
 the machine is **Omarchy**: Omarchy's packages, configs, CLI and update flow.
@@ -49,6 +49,10 @@ has a safe default; the last one asks for confirmation before `sudo` is
 requested. The screens use `gum`, the same toolkit as Omarchy's own installer,
 and the installer adds it if missing. Pass `--yes` (or set `OMACACHY_NO_TUI=1`)
 for an unattended install.
+
+<div align="center">
+  <img src="assets/cachy.png" alt="CachyOS screenshot" width="900" />
+</div>
 
 > Upstream Omarchy 4.x is ISO-only: it ships a prebuilt btrfs image with Arch
 > packages. OmaCachy does not fork it, does not rebuild it and does not clone
