@@ -41,12 +41,15 @@ TUI_CYAN=$'\033[38;2;125;207;255m'
 TUI_ACCENT=$TUI_GREEN
 TUI_TAGLINE='Omarchy on CachyOS'
 
-# gum colours: Omarchy green for the logo and the selected button, cyan for
-# prompts, a dark foreground on green so the choice stays readable.
+# gum colours: Omarchy green for "OMA", cyan for "CACHY" and prompts, a dark
+# foreground on green so the selected choice stays readable.
 GUM_GREEN='#9ece6a'
 GUM_CYAN='#7dcfff'
 GUM_DARK='#1a1b26'
 GUM_TEXT='#c0caf5'
+
+# Split between "OMA" and "CACHY" in the big wordmark (character columns).
+TUI_LOGO_SPLIT=28
 
 # Same wordmark shape as Omarchy's installer, sized to fit an 80-column
 # console (69 wide). Narrow or non-UTF-8 terminals get the plain name.
@@ -170,11 +173,19 @@ tui_frame() {
     printf '%s' "$TUI_CLEAR"
 
     if (( TUI_USE_BIG )); then
+      local left right
       for line in "${TUI_LOGO_BIG[@]}"; do
-        printf '%*s%s%s%s\n' "$TUI_PAD" '' "$TUI_ACCENT" "$line" "$TUI_RESET"
+        left=${line:0:TUI_LOGO_SPLIT}
+        right=${line:TUI_LOGO_SPLIT}
+        printf '%*s%s%s%s%s%s%s\n' "$TUI_PAD" '' \
+          "$TUI_GREEN$TUI_BOLD" "$left" \
+          "$TUI_CYAN$TUI_BOLD" "$right" \
+          "$TUI_RESET"
       done
     else
-      printf '%*s%s%sOmaCachy%s\n' "$TUI_PAD" '' "$TUI_ACCENT" "$TUI_BOLD" "$TUI_RESET"
+      printf '%*s%s%sOMA%s%sCACHY%s\n' "$TUI_PAD" '' \
+        "$TUI_GREEN$TUI_BOLD" "$TUI_RESET" \
+        "$TUI_CYAN$TUI_BOLD" "$TUI_RESET"
     fi
 
     tag=$TUI_TAGLINE
@@ -611,14 +622,22 @@ tui_progress_renderer() {
       printf '\033[H'
 
       if (( TUI_USE_BIG )) && (( TUI_ROWS >= 28 )); then
+        local left right
         for i in "${TUI_LOGO_BIG[@]}"; do
-          tui_progress_line A "$i"
+          left=${i:0:TUI_LOGO_SPLIT}
+          right=${i:TUI_LOGO_SPLIT}
+          printf '%*s%s%s%s%s%s%s\033[K\n' "$TUI_PAD" '' \
+            "$TUI_GREEN$TUI_BOLD" "$left" \
+            "$TUI_CYAN$TUI_BOLD" "$right" \
+            "$TUI_RESET"
         done
         tui_progress_line D "$TUI_TAGLINE"
         printf '\n'
         n_lines=$(( n_lines - ${#TUI_LOGO_BIG[@]} - 2 ))
       else
-        tui_progress_line A "OmaCachy"
+        printf '%*s%sOMA%s%sCACHY%s\033[K\n' "$TUI_PAD" '' \
+          "$TUI_GREEN$TUI_BOLD" "$TUI_RESET" \
+          "$TUI_CYAN$TUI_BOLD" "$TUI_RESET"
         tui_progress_line D "$TUI_TAGLINE"
         printf '\n'
         n_lines=$(( n_lines - 3 ))
