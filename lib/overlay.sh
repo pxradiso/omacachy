@@ -79,12 +79,30 @@ write_mkinitcpio_dropin() {
   # variant that matches it. Forcing systemd would break CachyOS's own
   # encrypt/keymap/consolefont hooks and can leave an encrypted root locked.
   local overlay_hook=btrfs-overlayfs
+  local overlay_remove=sd-btrfs-overlayfs
   if [[ " ${hooks[*]} " == *" systemd "* ]]; then
     overlay_hook=sd-btrfs-overlayfs
+    overlay_remove=btrfs-overlayfs
   fi
 
+  # Normalize an existing overlay hook to the initramfs type: a busybox initramfs
+  # with sd-btrfs-overlayfs fails because add_systemd_unit is unavailable.
+  local -a normalized=()
+  local h inserted_overlay=0
+  for h in "${hooks[@]}"; do
+    if [[ $h == btrfs-overlayfs || $h == sd-btrfs-overlayfs ]]; then
+      if (( !inserted_overlay )); then
+        normalized+=("$overlay_hook")
+        inserted_overlay=1
+      fi
+      continue
+    fi
+    normalized+=("$h")
+  done
+  hooks=("${normalized[@]}")
+
   if [[ " ${hooks[*]} " != *" plymouth "* ]]; then
-    local h inserted=0
+    local inserted=0
     new=()
     for h in "${hooks[@]}"; do
       new+=("$h")
@@ -99,8 +117,7 @@ write_mkinitcpio_dropin() {
     hooks=("${new[@]}")
   fi
 
-  if [[ " ${hooks[*]} " != *" btrfs-overlayfs "* &&
-    " ${hooks[*]} " != *" sd-btrfs-overlayfs "* ]]; then
+  if (( !inserted_overlay )); then
     hooks+=("$overlay_hook")
   fi
 
