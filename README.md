@@ -18,6 +18,7 @@ OmaCachy is the installer (`./install.sh`) and this repository. What ends up on
 the machine is **Omarchy**: Omarchy's packages, configs, CLI and update flow.
 CachyOS keeps what makes it CachyOS: its kernel, its `chwd` driver stack, its
 `pacman.conf`, mirrors and keyrings.
+
 Install it in 1 command!
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pxradiso/omacachy/main/install.sh | bash
