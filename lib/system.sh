@@ -140,8 +140,13 @@ configure_bootloader_preferences() {
   [[ -f $file ]] || : >"$file"
 
   # Omarchy-settings sets TARGET_OS_NAME="Omarchy"; keep the OS name as CachyOS.
-  # /etc/default/limine has highest priority over limine-entry-tool drop-ins.
+  # /etc/default/limine and a late drop-in override omarchy-defaults.conf.
   set_limine_kv "$file" TARGET_OS_NAME '"CachyOS"'
+  mkdir -p /etc/limine-entry-tool.d
+  cat > /etc/limine-entry-tool.d/99-omacachy.conf <<'EOF'
+# Installed by OmaCachy: keep Limine OS name as CachyOS.
+TARGET_OS_NAME="CachyOS"
+EOF
 
   if [[ -n $order ]]; then
     set_limine_kv "$file" UEFI_BOOT_ORDER "$order"

@@ -253,6 +253,85 @@ EOF
   info "Omarchy herdr autostart guard installed (survives omarchy update)"
 }
 
+
+OMACACHY_LIMINE_NAME_PATCH=/usr/local/lib/omacachy/patch-omarchy-limine-name
+OMACACHY_LIMINE_NAME_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-limine-name.hook
+
+patch_omarchy_limine_name() {
+  local def=/etc/default/limine
+  local dropin=/etc/limine-entry-tool.d/99-omacachy.conf
+  local os_mode=${OS_IDENTITY_MODE:-cachyos}
+  local name='CachyOS'
+  [[ $os_mode == omarchy ]] && name='Omarchy'
+
+  if (( DRY_RUN )); then
+    info "would set Limine TARGET_OS_NAME=\"$name\" in $def and $dropin"
+    return 0
+  fi
+
+  mkdir -p /etc/limine-entry-tool.d
+  if [[ -f $def ]]; then
+    backup_file "$def" limine-default
+    set_limine_kv "$def" TARGET_OS_NAME "\"$name\""
+  fi
+  cat >"$dropin" <<EOF
+# Installed by OmaCachy: keep Limine OS name stable.
+TARGET_OS_NAME="$name"
+EOF
+  success "Limine TARGET_OS_NAME set to $name"
+}
+
+install_omarchy_limine_name_guard() {
+  if (( DRY_RUN )); then
+    info "would install $OMACACHY_LIMINE_NAME_PATCH and $OMACACHY_LIMINE_NAME_HOOK"
+    return 0
+  fi
+
+  install -d -m 0755 "$(dirname "$OMACACHY_LIMINE_NAME_PATCH")"
+  cat >"$OMACACHY_LIMINE_NAME_PATCH" <<'EOF'
+#!/bin/bash
+set -eu
+state=/var/lib/omacachy/state.env
+os_mode=cachyos
+[[ -r $state ]] && . "$state"
+os_mode=${OMACACHY_OS_IDENTITY:-$os_mode}
+name=CachyOS
+[[ $os_mode == omarchy ]] && name=Omarchy
+mkdir -p /etc/limine-entry-tool.d
+cat > /etc/limine-entry-tool.d/99-omacachy.conf <<CONF
+# Installed by OmaCachy: keep Limine OS name stable.
+TARGET_OS_NAME="$name"
+CONF
+if [[ -f /etc/default/limine ]]; then
+  if grep -q '^TARGET_OS_NAME=' /etc/default/limine; then
+    sed -i "s|^TARGET_OS_NAME=.*$|TARGET_OS_NAME=\"$name\"|" /etc/default/limine
+  else
+    printf '\nTARGET_OS_NAME="%s"\n' "$name" >> /etc/default/limine
+  fi
+fi
+echo "OmaCachy: Limine TARGET_OS_NAME set to $name"
+EOF
+  chmod 0755 "$OMACACHY_LIMINE_NAME_PATCH"
+
+  install -d -m 0755 /etc/pacman.d/hooks
+  cat >"$OMACACHY_LIMINE_NAME_HOOK" <<'EOF'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = omarchy-settings
+Target = limine
+Target = limine-entry-tool
+
+[Action]
+Description = Keeping Limine OS name (OmaCachy)
+When = PostTransaction
+Exec = /usr/local/lib/omacachy/patch-omarchy-limine-name
+EOF
+  chmod 0644 "$OMACACHY_LIMINE_NAME_HOOK"
+  info "Limine OS name guard installed (survives omarchy/limine updates)"
+}
+
 finalize_install() {
   step "finalize: default session and recorded state"
 
@@ -275,6 +354,8 @@ finalize_install() {
   install_omarchy_provision_guard
   patch_omarchy_herdr_autostart
   install_omarchy_herdr_guard
+  patch_omarchy_limine_name
+  install_omarchy_limine_name_guard
   install_omacachy_command
   write_state OMACACHY_BROWSER "${OMACACHY_BROWSER:-auto}"
   write_state OMACACHY_OS_IDENTITY "${OS_IDENTITY_MODE:-cachyos}"
