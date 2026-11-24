@@ -224,6 +224,32 @@ resolve_package_set() {
       continue
     fi
 
+    if [[ $out =~ unable\ to\ satisfy\ dependency\ \'([^\']+)\'\ required\ by\ ([^[:space:]]+) ]] \
+       || [[ $out =~ cannot\ be\ upgraded\ due\ to\ unresolvable\ dependencies:[[:space:]]+([^[:space:]]+) ]]; then
+      if [[ ${BASH_REMATCH[1]:-} != "" && ${BASH_REMATCH[2]:-} != "" ]]; then
+        dep=${BASH_REMATCH[1]}
+        name=${BASH_REMATCH[2]}
+      else
+        dep=""
+        name=${BASH_REMATCH[1]}
+      fi
+      todo=($(printf '%s\n' "${todo[@]}" | grep -vxF -- "$name"))
+      skip_add "$name" "unresolvable dependency${dep:+ ($dep)}"
+      warn "Skipping $name${dep:+ ($dep)}: unresolvable dependency"
+      continue
+    fi
+
+    if [[ $out =~ are[[:space:]]in[[:space:]]conflict ]]; then
+      # Try to extract a package name we can drop; fall back to failing clearly.
+      if [[ $out =~ ([a-z0-9._+-]+)\ and\ ([a-z0-9._+-]+)\ are\ in\ conflict ]]; then
+        name=${BASH_REMATCH[2]}
+        todo=($(printf '%s\n' "${todo[@]}" | grep -vxF -- "$name"))
+        skip_add "$name" "package conflict"
+        warn "Skipping $name: package conflict"
+        continue
+      fi
+    fi
+
     die "Could not resolve the package transaction:
 $out"
   done
