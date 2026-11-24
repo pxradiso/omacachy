@@ -67,14 +67,15 @@ patch_omarchy_version_channel() {
 from pathlib import Path
 p = Path('/usr/bin/omarchy-version-channel')
 s = p.read_text()
-old = r"""if [[ $mirror == "unknown" || $pkgs == "unknown" ]]; then
+patterns = [
+    (r"""if [[ $mirror == "unknown" || $pkgs == "unknown" ]]; then
   echo "unknown"
 elif [[ $mirror == "$pkgs" ]]; then
   echo "$mirror"
 else
   echo "$mirror / $pkgs"
-fi"""
-new = r"""# omacachy-stable-channel: CachyOS keeps its own mirrorlist; Omarchy packages use stable.
+fi""",
+     r"""# omacachy-stable-channel: CachyOS keeps its own mirrorlist; Omarchy packages use stable.
 if [[ $pkgs == "unknown" ]] && grep -q "https://pkgs.omarchy.org/stable/" /etc/pacman.conf 2>/dev/null; then
   pkgs="stable"
 fi
@@ -88,9 +89,30 @@ elif [[ $mirror == "$pkgs" ]]; then
   echo "$mirror"
 else
   echo "$mirror / $pkgs"
-fi"""
-if old in s:
-    p.write_text(s.replace(old, new))
+fi"""),
+    (r"""if [[ $mirror == $pkgs ]]; then
+  echo $mirror
+else
+  echo "$mirror / $pkgs"
+fi""",
+     r"""# omacachy-stable-channel: CachyOS keeps its own mirrorlist; Omarchy packages use stable.
+if [[ $pkgs == "unknown" ]] && grep -q "https://pkgs.omarchy.org/stable/" /etc/pacman.conf 2>/dev/null; then
+  pkgs="stable"
+fi
+if [[ $mirror == "unknown" && $pkgs == "stable" ]]; then
+  mirror="stable"
+fi
+
+if [[ $mirror == $pkgs ]]; then
+  echo $mirror
+else
+  echo "$mirror / $pkgs"
+fi"""),
+]
+for old, new in patterns:
+    if old in s:
+        p.write_text(s.replace(old, new))
+        break
 PY
   success "Patched omarchy-version-channel for OmaCachy stable reporting"
 }
@@ -112,14 +134,15 @@ python3 - <<'PY'
 from pathlib import Path
 p = Path('/usr/bin/omarchy-version-channel')
 s = p.read_text()
-old = r"""if [[ $mirror == "unknown" || $pkgs == "unknown" ]]; then
+patterns = [
+    (r"""if [[ $mirror == "unknown" || $pkgs == "unknown" ]]; then
   echo "unknown"
 elif [[ $mirror == "$pkgs" ]]; then
   echo "$mirror"
 else
   echo "$mirror / $pkgs"
-fi"""
-new = r"""# omacachy-stable-channel: CachyOS keeps its own mirrorlist; Omarchy packages use stable.
+fi""",
+     r"""# omacachy-stable-channel: CachyOS keeps its own mirrorlist; Omarchy packages use stable.
 if [[ $pkgs == "unknown" ]] && grep -q "https://pkgs.omarchy.org/stable/" /etc/pacman.conf 2>/dev/null; then
   pkgs="stable"
 fi
@@ -133,10 +156,31 @@ elif [[ $mirror == "$pkgs" ]]; then
   echo "$mirror"
 else
   echo "$mirror / $pkgs"
-fi"""
-if old in s:
-    p.write_text(s.replace(old, new))
-    print('OmaCachy: patched omarchy-version-channel')
+fi"""),
+    (r"""if [[ $mirror == $pkgs ]]; then
+  echo $mirror
+else
+  echo "$mirror / $pkgs"
+fi""",
+     r"""# omacachy-stable-channel: CachyOS keeps its own mirrorlist; Omarchy packages use stable.
+if [[ $pkgs == "unknown" ]] && grep -q "https://pkgs.omarchy.org/stable/" /etc/pacman.conf 2>/dev/null; then
+  pkgs="stable"
+fi
+if [[ $mirror == "unknown" && $pkgs == "stable" ]]; then
+  mirror="stable"
+fi
+
+if [[ $mirror == $pkgs ]]; then
+  echo $mirror
+else
+  echo "$mirror / $pkgs"
+fi"""),
+]
+for old, new in patterns:
+    if old in s:
+        p.write_text(s.replace(old, new))
+        print('OmaCachy: patched omarchy-version-channel')
+        break
 PY
 EOF
   chmod 0755 "$OMACACHY_VERSION_CHANNEL_PATCH"
