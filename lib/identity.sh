@@ -210,7 +210,7 @@ install_os_release_guard() {
 # Installed by OmaCachy.
 #
 # omarchy-settings rewrites /etc/os-release to "Omarchy" from its .INSTALL
-# scriptlet on every install/upgrade, including the ones `omarchy update`
+# scriptlet on every install/upgrade, including the ones \`omarchy update\`
 # performs. Put the machine's own file back so it keeps reporting CachyOS.
 set -eu
 
