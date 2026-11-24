@@ -9,6 +9,8 @@ OMACACHY_ENV_PATCH=/usr/local/lib/omacachy/patch-omarchy-env
 OMACACHY_ENV_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-env.hook
 OMACACHY_PROVISION_PATCH=/usr/local/lib/omacachy/patch-omarchy-provision
 OMACACHY_PROVISION_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-provision.hook
+OMACACHY_VERSION_CHANNEL_PATCH=/usr/local/lib/omacachy/patch-omarchy-version-channel
+OMACACHY_VERSION_CHANNEL_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-version-channel.hook
 
 install_omacachy_command() {
   local bin=/usr/local/bin/omacachy
@@ -48,6 +50,112 @@ patch_omarchy_fastfetch_env() {
     sed -i '/^set -euo pipefail$/a : "${OMARCHY_PATH:=/usr/share/omarchy}"' "$f"
     success "Patched $f: defaults OMARCHY_PATH for fastfetch/non-login shells"
   done
+}
+
+patch_omarchy_version_channel() {
+  local f=/usr/bin/omarchy-version-channel
+  [[ -f $f ]] || return 0
+  grep -q 'omacachy-stable-channel' "$f" && return 0
+
+  if (( DRY_RUN )); then
+    info "would patch omarchy-version-channel to report stable on OmaCachy"
+    return 0
+  fi
+
+  backup_file "$f" "$(basename "$f")"
+  python3 - <<'PY'
+from pathlib import Path
+p = Path('/usr/bin/omarchy-version-channel')
+s = p.read_text()
+old = r"""if [[ $mirror == "unknown" || $pkgs == "unknown" ]]; then
+  echo "unknown"
+elif [[ $mirror == "$pkgs" ]]; then
+  echo "$mirror"
+else
+  echo "$mirror / $pkgs"
+fi"""
+new = r"""# omacachy-stable-channel: CachyOS keeps its own mirrorlist; Omarchy packages use stable.
+if [[ $pkgs == "unknown" ]] && grep -q "https://pkgs.omarchy.org/stable/" /etc/pacman.conf 2>/dev/null; then
+  pkgs="stable"
+fi
+if [[ $mirror == "unknown" && $pkgs == "stable" ]]; then
+  mirror="stable"
+fi
+
+if [[ $mirror == "unknown" || $pkgs == "unknown" ]]; then
+  echo "unknown"
+elif [[ $mirror == "$pkgs" ]]; then
+  echo "$mirror"
+else
+  echo "$mirror / $pkgs"
+fi"""
+if old in s:
+    p.write_text(s.replace(old, new))
+PY
+  success "Patched omarchy-version-channel for OmaCachy stable reporting"
+}
+
+install_omarchy_version_channel_guard() {
+  if (( DRY_RUN )); then
+    info "would install $OMACACHY_VERSION_CHANNEL_PATCH and $OMACACHY_VERSION_CHANNEL_HOOK"
+    return 0
+  fi
+
+  install -d -m 0755 "$(dirname "$OMACACHY_VERSION_CHANNEL_PATCH")"
+  cat >"$OMACACHY_VERSION_CHANNEL_PATCH" <<'EOF'
+#!/bin/bash
+set -eu
+f=/usr/bin/omarchy-version-channel
+[[ -f $f ]] || exit 0
+grep -q 'omacachy-stable-channel' "$f" && exit 0
+python3 - <<'PY'
+from pathlib import Path
+p = Path('/usr/bin/omarchy-version-channel')
+s = p.read_text()
+old = r"""if [[ $mirror == "unknown" || $pkgs == "unknown" ]]; then
+  echo "unknown"
+elif [[ $mirror == "$pkgs" ]]; then
+  echo "$mirror"
+else
+  echo "$mirror / $pkgs"
+fi"""
+new = r"""# omacachy-stable-channel: CachyOS keeps its own mirrorlist; Omarchy packages use stable.
+if [[ $pkgs == "unknown" ]] && grep -q "https://pkgs.omarchy.org/stable/" /etc/pacman.conf 2>/dev/null; then
+  pkgs="stable"
+fi
+if [[ $mirror == "unknown" && $pkgs == "stable" ]]; then
+  mirror="stable"
+fi
+
+if [[ $mirror == "unknown" || $pkgs == "unknown" ]]; then
+  echo "unknown"
+elif [[ $mirror == "$pkgs" ]]; then
+  echo "$mirror"
+else
+  echo "$mirror / $pkgs"
+fi"""
+if old in s:
+    p.write_text(s.replace(old, new))
+    print('OmaCachy: patched omarchy-version-channel')
+PY
+EOF
+  chmod 0755 "$OMACACHY_VERSION_CHANNEL_PATCH"
+
+  install -d -m 0755 /etc/pacman.d/hooks
+  cat >"$OMACACHY_VERSION_CHANNEL_HOOK" <<'EOF'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = omarchy
+
+[Action]
+Description = Patching Omarchy version channel for OmaCachy
+When = PostTransaction
+Exec = /usr/local/lib/omacachy/patch-omarchy-version-channel
+EOF
+  chmod 0644 "$OMACACHY_VERSION_CHANNEL_HOOK"
+  info "Omarchy version-channel guard installed (survives omarchy update)"
 }
 
 install_omarchy_env_guard() {
@@ -350,6 +458,8 @@ finalize_install() {
 
   patch_omarchy_fastfetch_env
   install_omarchy_env_guard
+  patch_omarchy_version_channel
+  install_omarchy_version_channel_guard
   patch_omarchy_provision_user
   install_omarchy_provision_guard
   patch_omarchy_herdr_autostart
