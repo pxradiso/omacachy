@@ -15,6 +15,7 @@ NO_GREETER=0
 BOOT_MODE_SET=0
 TUI_DONE=0
 NO_PROGRESS=0
+SETUP_FISH=0
 
 banner() {
   printf '\n%s  OmaCachy %s%s - Omarchy %s on CachyOS\n\n' \
@@ -61,8 +62,20 @@ parse_install_args() {
         WITH_NVIDIA=1
         shift
         ;;
+      --browser)
+        OMACACHY_BROWSER=${2:-}
+        shift 2
+        ;;
+      --browser=*)
+        OMACACHY_BROWSER=${1#*=}
+        shift
+        ;;
       --no-apps)
         NO_APPS=1
+        shift
+        ;;
+      --setup-fish)
+        SETUP_FISH=1
         shift
         ;;
       --remove-existing-de)
@@ -132,6 +145,9 @@ Options:
                            skip     manage the bootloader yourself
       --with-nvidia      install Omarchy's NVIDIA packages instead of leaving
                          the GPU stack to CachyOS/chwd
+      --browser NAME     browser to install/use (chromium, firefox, brave-bin,
+                         zen-browser, helium-browser, auto)
+      --setup-fish       install omarchy-fish and run omarchy-setup-fish for the user
       --no-apps          install the desktop without Omarchy's preinstalled
                          applications (Chromium, LibreOffice, Obsidian, ...)
       --remove-existing-de
@@ -172,7 +188,9 @@ reexec_as_root() {
   (( VERBOSE )) && fwd+=(-v)
   (( ALLOW_NON_BTRFS )) && fwd+=(--allow-non-btrfs)
   (( WITH_NVIDIA )) && fwd+=(--with-nvidia)
+  [[ -n ${OMACACHY_BROWSER:-} && ${OMACACHY_BROWSER:-} != auto ]] && fwd+=(--browser "$OMACACHY_BROWSER")
   (( NO_APPS )) && fwd+=(--no-apps)
+  (( SETUP_FISH )) && fwd+=(--setup-fish)
   (( REMOVE_EXISTING_DE )) && fwd+=(--remove-existing-de)
   (( NO_GREETER )) && fwd+=(--no-greeter)
   (( SKIP_PACKAGES )) && fwd+=(--skip-packages)
@@ -270,6 +288,7 @@ install_main() {
   else
     seed_skel
     ensure_tty_fastfetch
+    setup_omarchy_fish
     provision_user
   fi
 

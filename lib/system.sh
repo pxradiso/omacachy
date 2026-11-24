@@ -116,21 +116,21 @@ ensure_limine_cmdline() {
 # hook runs limine-install on install, and /etc/default/limine overrides the
 # Omarchy drop-ins.
 configure_bootloader_preferences() {
-  local file=/etc/default/limine order fallback
-
-  if [[ $BOOT_MODE == skip ]]; then
-    info "bootloader: leaving firmware/Limine preferences untouched (--boot=skip)"
-    return 0
-  fi
+  local file=/etc/default/limine order='' fallback=''
 
   case $BOOT_MODE in
     register) order=keep fallback=no ;;
     convert) order=first fallback=yes ;;
+    skip) ;;
     *) return 0 ;;
   esac
 
   if (( DRY_RUN )); then
-    info "would set UEFI_BOOT_ORDER=$order and ENABLE_LIMINE_FALLBACK=$fallback in $file"
+    if [[ -n $order ]]; then
+      info "would set UEFI_BOOT_ORDER=$order, ENABLE_LIMINE_FALLBACK=$fallback and TARGET_OS_NAME=\"CachyOS\" in $file"
+    else
+      info "would set TARGET_OS_NAME=\"CachyOS\" in $file (--boot=skip keeps other boot preferences)"
+    fi
     ensure_limine_cmdline "$file"
     return 0
   fi
@@ -138,18 +138,32 @@ configure_bootloader_preferences() {
   backup_file "$file" limine-default
   mkdir -p /etc/default
   [[ -f $file ]] || : >"$file"
-  set_limine_kv "$file" UEFI_BOOT_ORDER "$order"
-  set_limine_kv "$file" ENABLE_LIMINE_FALLBACK "$fallback"
+
+  # Omarchy-settings sets TARGET_OS_NAME="Omarchy"; keep the OS name as CachyOS.
+  # /etc/default/limine has highest priority over limine-entry-tool drop-ins.
+  set_limine_kv "$file" TARGET_OS_NAME '"CachyOS"'
+
+  if [[ -n $order ]]; then
+    set_limine_kv "$file" UEFI_BOOT_ORDER "$order"
+    set_limine_kv "$file" ENABLE_LIMINE_FALLBACK "$fallback"
+  else
+    info "bootloader: keeping firmware/Limine preferences untouched (--boot=skip)"
+  fi
+
   ensure_limine_cmdline "$file"
 
-  if have efibootmgr && [[ -d $OMACACHY_BACKUP_DIR ]]; then
+  if [[ -n $order ]] && have efibootmgr && [[ -d $OMACACHY_BACKUP_DIR ]]; then
     efibootmgr -v >"$OMACACHY_BACKUP_DIR/efibootmgr.before.txt" 2>/dev/null || true
   fi
 
-  success "Limine preferences: UEFI_BOOT_ORDER=$order ENABLE_LIMINE_FALLBACK=$fallback"
-  if [[ $BOOT_MODE == register ]]; then
-    info "Limine will be registered in the firmware menu but the current default stays."
-    info "Pick \"Limine\" in the firmware boot menu (or rerun with --boot=convert)."
+  if [[ -n $order ]]; then
+    success "Limine preferences: TARGET_OS_NAME=CachyOS UEFI_BOOT_ORDER=$order ENABLE_LIMINE_FALLBACK=$fallback"
+    if [[ $BOOT_MODE == register ]]; then
+      info "Limine will be registered in the firmware menu but the current default stays."
+      info "Pick \"Limine\" in the firmware boot menu (or rerun with --boot=convert)."
+    fi
+  else
+    success "Limine OS name set to CachyOS"
   fi
 }
 

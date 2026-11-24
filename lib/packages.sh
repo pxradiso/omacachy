@@ -14,6 +14,13 @@ _OMACACHY_PACKAGES=1
 WITH_NVIDIA="${WITH_NVIDIA:-0}"
 NO_APPS="${NO_APPS:-0}"
 
+# Browser chosen by the user/TUI. "auto" picks the first installed/sensible one.
+OMACACHY_BROWSER="${OMACACHY_BROWSER:-auto}"
+
+# Core browsers shown in installer choices; other installed desktops are kept as
+# possible defaults.
+OMACACHY_BROWSER_CHOICES=(chromium firefox brave-bin zen-browser helium-browser)
+
 # Omarchy's preinstalled *applications*, as opposed to the desktop shell and
 # its system dependencies. `--no-apps` skips exactly these (and nothing else),
 # so a minimal install still has Hyprland, the shell, the terminal, fonts,
@@ -50,6 +57,8 @@ OMARCHY_APP_PACKAGES=(
   ttf-ia-writer
 )
 
+OMACACHY_BROWSER_PACKAGES=(chromium firefox brave-bin zen-browser helium-browser)
+
 declare -A SKIP_REASON=()
 SKIPPED=()
 SKIPPED_REASONS=()
@@ -81,6 +90,13 @@ load_skip_policy() {
     done
   fi
 
+  # Hardware-specific drivers: avoid bloat and broken DKMS on unsupported machines.
+  if (( ! IS_TUXEDO )); then
+    for p in tuxedo-drivers-nocompatcheck-dkms tuxedo-drivers-dkms tuxedo-control-center-bin; do
+      SKIP_REASON[$p]="TUXEDO hardware not detected"
+    done
+  fi
+
   # CachyOS (chwd) owns the power-profiles daemon; Omarchy's copy conflicts
   SKIP_REASON[omarchy-power-profiles-daemon]="CachyOS (chwd) owns the power-profiles daemon"
 
@@ -105,14 +121,62 @@ read_omarchy_packages() {
   done | sed -E 's/[[:space:]]+$//' | sort -u
 }
 
+browser_desktop_for_package() {
+  case $1 in
+    chromium) echo chromium.desktop ;;
+    firefox) echo firefox.desktop ;;
+    brave-bin | brave) echo brave-browser.desktop ;;
+    zen-browser) echo zen-browser.desktop ;;
+    helium-browser) echo helium-browser.desktop ;;
+    *) echo '' ;;
+  esac
+}
+
+resolve_omacachy_browser() {
+  local choice=${OMACACHY_BROWSER:-auto}
+  local p
+
+  if [[ $choice != auto ]]; then
+    printf '%s\n' "$choice"
+    return 0
+  fi
+
+  for p in "${OMACACHY_BROWSER_CHOICES[@]}"; do
+    if pkg_installed "$p"; then
+      printf '%s\n' "$p"
+      return 0
+    fi
+  done
+
+  printf 'chromium\n'
+}
+
 build_package_set() {
   PACKAGES=()
-  local p
+  local p selected_browser
+  selected_browser=$(resolve_omacachy_browser)
+
   while IFS= read -r p; do
     [[ -n $p ]] || continue
     [[ -v SKIP_REASON[$p] ]] && continue
+
+    # Replace Omarchy's default browser with the selected one.
+    case " ${OMACACHY_BROWSER_PACKAGES[*]} " in
+      *" $p "*)
+        [[ $p == "$selected_browser" ]] || continue
+        ;;
+    esac
+
     PACKAGES+=("$p")
   done < <(read_omarchy_packages)
+
+  # Ensure selected browser is present when apps are installed.
+  if (( ! NO_APPS )) && [[ -n $selected_browser ]]; then
+    case " ${PACKAGES[*]} " in
+      *" $selected_browser "*) ;;
+      *) PACKAGES+=("$selected_browser") ;;
+    esac
+  fi
 }
 
 install_omarchy_runtime() {

@@ -119,6 +119,27 @@ EOF
   success "Console logins show Omarchy's fastfetch (tty only, once per login)"
 }
 
+setup_omarchy_fish() {
+  (( SETUP_FISH )) || return 0
+
+  step "user: setup Omarchy fish shell"
+
+  if (( DRY_RUN )); then
+    info "would install omarchy-fish and run omarchy-setup-fish for $TARGET_USER"
+    return 0
+  fi
+
+  pkg_installed omarchy-fish || run pacman -S --needed --noconfirm omarchy-fish
+  command -v omarchy-setup-fish >/dev/null 2>&1 || {
+    warn "omarchy-setup-fish not found; skipping fish setup"
+    return 0
+  }
+
+  run_as_user "$TARGET_USER" omarchy-setup-fish || warn "omarchy-setup-fish reported an error"
+  ensure_tty_fastfetch
+  success "Omarchy fish setup complete for $TARGET_USER"
+}
+
 provision_user() {
   local log="$OMACACHY_LOG_DIR/omarchy-user.log"
   local marker

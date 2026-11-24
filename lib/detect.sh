@@ -131,6 +131,46 @@ detect_conflicting_desktops() {
   fi
 }
 
+detect_hardware() {
+  IS_TUXEDO=0
+  HAS_NVIDIA_GPU=0
+
+  local vendor product
+  vendor=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)
+  product=$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)
+  case "$vendor $product" in
+    *TUXEDO* | *Schenker* | *XMG* | *Mechrevo* | *Tongfang* | *Uniwill*)
+      IS_TUXEDO=1
+      ;;
+  esac
+
+  if have lspci && lspci 2>/dev/null | grep -qi 'nvidia'; then
+    HAS_NVIDIA_GPU=1
+  fi
+
+  debug "hardware: tuxedo=$IS_TUXEDO nvidia_gpu=$HAS_NVIDIA_GPU vendor=$vendor"
+}
+
+detect_hardware() {
+  IS_TUXEDO=0
+  HAS_NVIDIA_GPU=0
+
+  local vendor product
+  vendor=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)
+  product=$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)
+  case "$vendor $product" in
+    *TUXEDO* | *Schenker* | *XMG* | *Mechrevo* | *Tongfang* | *Uniwill*)
+      IS_TUXEDO=1
+      ;;
+  esac
+
+  if have lspci && lspci 2>/dev/null | grep -qi 'nvidia'; then
+    HAS_NVIDIA_GPU=1
+  fi
+
+  debug "hardware: tuxedo=$IS_TUXEDO nvidia_gpu=$HAS_NVIDIA_GPU vendor=$vendor"
+}
+
 free_kib() { df -Pk "$1" 2>/dev/null | awk 'NR==2 {print $4}'; }
 
 check_disk_space() {
@@ -205,6 +245,7 @@ preflight() {
   detect_esp
   detect_limine
   detect_omarchy
+  detect_hardware
   detect_conflicting_desktops
   check_disk_space
   check_boot_prereqs
