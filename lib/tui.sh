@@ -284,7 +284,7 @@ tui_message() {
 # --- setup wizard -----------------------------------------------------------
 
 tui_run() {
-  local apps_sel de_sel limine_sel entry_sel greeter_sel osid_sel
+  local apps_sel de_sel limine_sel entry_sel greeter_sel osid_sel browser_sel
   local -a summary
   local detect_de=0 action=0
 
@@ -346,7 +346,48 @@ tui_run() {
       de_sel=1
     fi
 
-    # 3. Limine.
+    # 3. Default browser.
+    local browser_sel="${OMACACHY_BROWSER:-auto}"
+    if (( ! SKIP_PACKAGES )); then
+      tui_frame "" \
+        "Choose the default browser to install and set as default." \
+        "" \
+        "Auto keeps the normal Omarchy choice (Chromium) when available."
+      tui_measure
+      tui_hint 'Up/Down: move   Enter: confirm   Ctrl+C: abort'
+      local browser_choice browser_status=0 browser_selected="Auto (Chromium)"
+      case "$browser_sel" in
+        chromium) browser_selected="Chromium" ;;
+        firefox) browser_selected="Firefox" ;;
+        brave-bin) browser_selected="Brave" ;;
+        zen-browser) browser_selected="Zen Browser" ;;
+        helium-browser) browser_selected="Helium Browser" ;;
+      esac
+      browser_choice=$(GUM_CHOOSE_PADDING="0 0 0 $TUI_PAD" \
+        gum choose \
+          --height 6 \
+          --header "Which browser do you want as default?" \
+          --header.foreground "$GUM_CYAN" \
+          --cursor.foreground "$GUM_GREEN" \
+          --item.foreground "$GUM_TEXT" \
+          --selected.foreground "$GUM_DARK" \
+          --selected.background "$GUM_GREEN" \
+          --selected "$browser_selected" \
+          -- "Auto (Chromium)" "Chromium" "Firefox" "Brave" "Zen Browser" "Helium Browser" </dev/tty 2>&3) || browser_status=$?
+      (( browser_status == 0 )) || tui_abort
+      case "$browser_choice" in
+        "Chromium") browser_sel=chromium ;;
+        "Firefox") browser_sel=firefox ;;
+        "Brave") browser_sel=brave-bin ;;
+        "Zen Browser") browser_sel=zen-browser ;;
+        "Helium Browser") browser_sel=helium-browser ;;
+        *) browser_sel=auto ;;
+      esac
+    else
+      browser_sel=auto
+    fi
+
+    # 4. Limine.
     local limine_default=yes
     [[ $BOOT_MODE == skip ]] && limine_default=no
     while :; do
@@ -389,7 +430,7 @@ tui_run() {
         "Press Enter to go back, or Ctrl+C to abort."
     done
 
-    # 4. The login greeter.
+    # 5. The login greeter.
     local greeter_default=yes
     (( greeter_sel == 1 )) && greeter_default=no
     if tui_yes_no "Do you want Omarchy's login greeter?" "$greeter_default" \
@@ -401,7 +442,7 @@ tui_run() {
       greeter_sel=1
     fi
 
-    # 5. System name shown by the OS.
+    # 6. System name shown by the OS.
     tui_frame "" \
       "Choose which name the system should show in /etc/os-release." \
       "" \
@@ -433,6 +474,18 @@ tui_run() {
       summary+=("Applications   Omarchy's preinstalled apps")
     else
       summary+=("Applications   desktop only (no preinstalled apps)")
+    fi
+    if (( SKIP_PACKAGES )); then
+      summary+=("Browser        unchanged (--skip-packages)")
+    else
+      case "$browser_sel" in
+        chromium) summary+=("Browser        Chromium") ;;
+        firefox) summary+=("Browser        Firefox") ;;
+        brave-bin) summary+=("Browser        Brave") ;;
+        zen-browser) summary+=("Browser        Zen Browser") ;;
+        helium-browser) summary+=("Browser        Helium Browser") ;;
+        *) summary+=("Browser        Auto (Chromium)") ;;
+      esac
     fi
     if (( detect_de == 0 )); then
       summary+=("Current DE/WM  none detected")
@@ -482,6 +535,7 @@ tui_run() {
   REMOVE_EXISTING_DE=$(( de_sel == 0 ? 1 : 0 ))
   NO_GREETER=$greeter_sel
   OS_IDENTITY_MODE=$( (( osid_sel == 1 )) && echo omarchy || echo cachyos )
+  OMACACHY_BROWSER=${browser_sel:-auto}
   if (( limine_sel == 0 )); then BOOT_MODE=skip; fi
 
   tui_close
@@ -494,6 +548,16 @@ tui_run() {
     summary_text+=("  Applications    desktop only (no preinstalled apps)")
   else
     summary_text+=("  Applications    Omarchy's preinstalled apps")
+  fi
+  if (( ! SKIP_PACKAGES )); then
+    case "${OMACACHY_BROWSER:-auto}" in
+      chromium) summary_text+=("  Browser         Chromium") ;;
+      firefox) summary_text+=("  Browser         Firefox") ;;
+      brave-bin) summary_text+=("  Browser         Brave") ;;
+      zen-browser) summary_text+=("  Browser         Zen Browser") ;;
+      helium-browser) summary_text+=("  Browser         Helium Browser") ;;
+      *) summary_text+=("  Browser         Auto (Chromium)") ;;
+    esac
   fi
   if (( detect_de == 0 )); then
     summary_text+=("  Current DE/WM   none detected")

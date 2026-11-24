@@ -39,9 +39,8 @@ is_cachyos_os_release() {
   grep -qE '^(ID=cachyos|NAME="?CachyOS( Linux)?"?)$' "$file" 2>/dev/null
 }
 
-# CachyOS's branding hook sets PRETTY_NAME="CachyOS". On a converted machine the
-# user expects the version in the system name, so we normalize it to
-# "CachyOS versione <VERSION_ID>" (or BUILD_ID/rolling as fallback).
+# CachyOS's branding hook sets PRETTY_NAME="CachyOS". Normalize to
+# "CachyOS Linux" (or "CachyOS Linux <VERSION_ID>" when a real version exists).
 format_cachyos_os_release() {
   local file=$1 version
   [[ -f $file ]] || return 0
@@ -51,9 +50,13 @@ format_cachyos_os_release() {
   [[ -n $version ]] || version=$(sed -n 's/^BUILD_ID=//p' "$file" | tail -1 | tr -d '"'"'"'')
   [[ -n $version ]] || version=rolling
 
+  local pretty="CachyOS Linux"
+  if [[ -n $version && $version != rolling ]]; then
+    pretty="CachyOS Linux $version"
+  fi
   sed -i \
     -e 's|^NAME=.*$|NAME="CachyOS Linux"|' \
-    -e "s|^PRETTY_NAME=.*$|PRETTY_NAME=\"CachyOS versione ${version}\"|" \
+    -e "s|^PRETTY_NAME=.*$|PRETTY_NAME=\"${pretty}\"|" \
     "$file"
 }
 
@@ -224,9 +227,13 @@ format_cachyos_os_release() {
   version=\$(sed -n 's/^VERSION_ID=//p' "\$file" | tail -1 | tr -d '"'"'"')
   [[ -n \$version ]] || version=\$(sed -n 's/^BUILD_ID=//p' "\$file" | tail -1 | tr -d '"'"'"')
   [[ -n \$version ]] || version=rolling
+  local pretty="CachyOS Linux"
+  if [[ -n \$version && \$version != rolling ]]; then
+    pretty="CachyOS Linux \$version"
+  fi
   sed -i \
     -e 's|^NAME=.*\$|NAME="CachyOS Linux"|' \
-    -e "s|^PRETTY_NAME=.*\$|PRETTY_NAME=\\"CachyOS versione \${version}\\"|" \
+    -e "s|^PRETTY_NAME=.*\$|PRETTY_NAME=\\"${pretty}\\"|" \
     "\$file"
 }
 
