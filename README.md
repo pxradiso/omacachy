@@ -18,6 +18,10 @@ the machine is **Omarchy**: Omarchy's packages, configs, CLI and update flow.
 CachyOS keeps what makes it CachyOS: its kernel, its `chwd` driver stack, its
 `pacman.conf`, mirrors and keyrings.
 
+> **Beta software.** OmaCachy is still in beta and may contain bugs. Use it at your own risk.
+> Back up your data and system before running it. pxradiso is not responsible for any damage,
+> data loss, boot issues, or other problems caused by using this project.
+
 Install it in 1 command!
 ```bash
 curl -fsSL https://raw.githubusercontent.com/pxradiso/omacachy/main/install.sh | bash
