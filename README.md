@@ -51,7 +51,7 @@ and the installer adds it if missing. Pass `--yes` (or set `OMACACHY_NO_TUI=1`)
 for an unattended install.
 
 <div align="center">
-  <img src="assets/cachy.png" alt="CachyOS logo" width="220" />
+  <img src="assets/cachy.png" alt="CachyOS screenshot" width="900" />
 </div>
 
 OmaCachy is the installer (`./install.sh`) and this repository. What ends up on
