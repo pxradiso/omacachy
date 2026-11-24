@@ -9,7 +9,7 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/pxradiso/omacachy?color=blue)](https://github.com/pxradiso/omacachy/releases)
-[![Omarchy stable](https://img.shields.io/badge/Omarchy%20stable-4.5.x-2dd4bf)](https://pkgs.omarchy.org/stable)
+[![Omarchy stable](https://img.shields.io/badge/Omarchy%20stable-4.5.0-3-2dd4bf)](https://pkgs.omarchy.org/stable)
 [![CachyOS](https://img.shields.io/badge/CachyOS-supported-00a3e0)](https://cachyos.org)
 
 </div>
