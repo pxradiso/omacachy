@@ -4,15 +4,13 @@
 <br/>
 
 <img src="assets/omacachy.png" alt="OmaCachy Logo" width="600" />
-<img src="assets/cachy.png" alt="CachyOS screenshot" width="900" />
 **Installs DHH's dotfiles ([Omarchy](https://omarchy.org)) on [CachyOS](https://cachyos.org).**
-
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg?logo=opensourceinitiative&logoColor=black)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/pxradiso/omacachy?color=blue&logo=github&logoColor=white)](https://github.com/pxradiso/omacachy/releases)
 [![Omarchy stable](https://img.shields.io/badge/Omarchy%20stable-4.5.x-2dd4bf?logo=omarchy&logoColor=%230f172a)](https://pkgs.omarchy.org/stable)
 [![CachyOS](https://img.shields.io/badge/CachyOS-Fully%20Working%21-00a3e0?logo=cachyos&logoColor=white)](https://cachyos.org)
 </div>
-
+<img src="assets/cachy.png" alt="CachyOS screenshot" width="900" />
 OmaCachy is the installer (`./install.sh`) and this repository. What ends up on
 the machine is **Omarchy**: Omarchy's packages, configs, CLI and update flow.
 CachyOS keeps what makes it CachyOS: its kernel, its `chwd` driver stack, its
