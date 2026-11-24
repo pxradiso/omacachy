@@ -389,18 +389,26 @@ tui_run() {
     fi
 
     # 4. Shell.
-    local shell_default=fish
-    [[ ${OMACACHY_SHELL:-fish} == bash ]] && shell_default=bash
-    if tui_yes_no \
-      "Do you want Fish as your default shell?" \
-      "$( [[ $shell_default == fish ]] && echo yes || echo no )" \
-      "Fish is Omarchy's default shell experience." \
-      "" \
-      "Bash keeps Omarchy's bash defaults. If you choose Bash, you can" \
-      "optionally back up your existing fish config."; then
-      shell_sel=0
-      backup_fish_sel=1
-    else
+    local shell_default="Fish"
+    [[ ${OMACACHY_SHELL:-fish} == bash ]] && shell_default="Bash (Omarchy's Default)"
+    tui_frame "" \
+      "Choose the shell you want to use."
+    tui_measure
+    tui_hint 'Up/Down: move   Enter: confirm   Ctrl+C: abort'
+    local shell_choice shell_status=0
+    shell_choice=$(GUM_CHOOSE_PADDING="0 0 0 $TUI_PAD" \
+      gum choose \
+        --height 2 \
+        --header "Which shell do you want to use?:" \
+        --header.foreground "$GUM_CYAN" \
+        --cursor.foreground "$GUM_GREEN" \
+        --item.foreground "$GUM_TEXT" \
+        --selected.foreground "$GUM_DARK" \
+        --selected.background "$GUM_GREEN" \
+        --selected "$shell_default" \
+        -- "Fish" "Bash (Omarchy's Default)" </dev/tty 2>&3) || shell_status=$?
+    (( shell_status == 0 )) || tui_abort
+    if [[ $shell_choice == "Bash (Omarchy's Default)" ]]; then
       shell_sel=1
       if tui_yes_no "Do you want to back up your existing fish config?" no \
         "This copies ~/.config/fish to a timestamped backup before switching to Bash."; then
@@ -408,6 +416,9 @@ tui_run() {
       else
         backup_fish_sel=1
       fi
+    else
+      shell_sel=0
+      backup_fish_sel=1
     fi
 
     # 5. Limine.
