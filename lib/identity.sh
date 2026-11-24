@@ -93,6 +93,12 @@ reconstruct_cachyos_os_release() {
 capture_os_release() {
   local saved
 
+  if [[ ${OS_IDENTITY_MODE:-cachyos} == omarchy ]]; then
+    step "identity: keeping Omarchy /etc/os-release as requested"
+    info "OS identity mode: omarchy (OmaCachy will not restore CachyOS os-release)"
+    return 0
+  fi
+
   step "identity: record /etc/os-release so the system keeps saying CachyOS"
 
   if is_usable_os_release "$OMACACHY_OS_RELEASE_ORIGINAL"; then
@@ -147,6 +153,11 @@ capture_os_release() {
 restore_os_release() {
   local original=$OMACACHY_OS_RELEASE_ORIGINAL
 
+  if [[ ${OS_IDENTITY_MODE:-cachyos} == omarchy ]]; then
+    debug "OS identity mode omarchy: leaving /etc/os-release untouched"
+    return 0
+  fi
+
   [[ -f $original ]] || return 0
 
   if (( DRY_RUN )); then
@@ -177,6 +188,11 @@ restore_os_release() {
 
 install_os_release_guard() {
   local original=$OMACACHY_OS_RELEASE_ORIGINAL
+
+  if [[ ${OS_IDENTITY_MODE:-cachyos} == omarchy ]]; then
+    info "OS identity mode omarchy: os-release guard not installed"
+    return 0
+  fi
 
   if (( DRY_RUN )); then
     info "would install $OMACACHY_OS_RELEASE_RESTORE and $OMACACHY_OS_RELEASE_HOOK"

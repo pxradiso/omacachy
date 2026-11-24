@@ -282,13 +282,15 @@ tui_message() {
 # --- setup wizard -----------------------------------------------------------
 
 tui_run() {
-  local apps_sel de_sel limine_sel entry_sel greeter_sel
+  local apps_sel de_sel limine_sel entry_sel greeter_sel osid_sel
   local -a summary
   local detect_de=0 action=0
 
   apps_sel=$(( NO_APPS ? 1 : 0 ))
   de_sel=$(( REMOVE_EXISTING_DE ? 0 : 1 ))
   greeter_sel=$(( NO_GREETER ? 1 : 0 ))
+  osid_sel=0
+  [[ ${OS_IDENTITY_MODE:-cachyos} == omarchy ]] && osid_sel=1
   limine_sel=0
   entry_sel=1
   [[ $BOOT_MODE == convert ]] && entry_sel=0
@@ -397,6 +399,30 @@ tui_run() {
       greeter_sel=1
     fi
 
+    # 5. System name shown by the OS.
+    tui_frame "" \
+      "Choose which name the system should show in /etc/os-release." \
+      "" \
+      "CachyOS keeps the CachyOS identity (recommended)." \
+      "Omarchy makes the system report Omarchy."
+    tui_measure
+    tui_hint 'Up/Down: move   Enter: confirm   Ctrl+C: abort'
+    local osid_choice osid_status=0 osid_selected="CachyOS (keep system identity)"
+    (( osid_sel == 1 )) && osid_selected="Omarchy (show Omarchy as system)"
+    osid_choice=$(GUM_CHOOSE_PADDING="0 0 0 $TUI_PAD" \
+      gum choose \
+        --height 2 \
+        --header "What system name do you want?" \
+        --header.foreground "$GUM_CYAN" \
+        --cursor.foreground "$GUM_GREEN" \
+        --item.foreground "$GUM_TEXT" \
+        --selected.foreground "$GUM_DARK" \
+        --selected.background "$GUM_GREEN" \
+        --selected "$osid_selected" \
+        -- "CachyOS (keep system identity)" "Omarchy (show Omarchy as system)" </dev/tty 2>&3) || osid_status=$?
+    (( osid_status == 0 )) || tui_abort
+    [[ $osid_choice == "Omarchy (show Omarchy as system)" ]] && osid_sel=1 || osid_sel=0
+
     # 5. Summary and final confirmation.
     local -a summary=()
     if (( SKIP_PACKAGES )); then
@@ -424,6 +450,11 @@ tui_run() {
     else
       summary+=("Login greeter  Omarchy's SDDM theme")
     fi
+    if (( osid_sel == 1 )); then
+      summary+=("System name    Omarchy")
+    else
+      summary+=("System name    CachyOS")
+    fi
 
     tui_frame "Setup summary"
     tui_say "" "${summary[@]}" ""
@@ -448,6 +479,7 @@ tui_run() {
   NO_APPS=$apps_sel
   REMOVE_EXISTING_DE=$(( de_sel == 0 ? 1 : 0 ))
   NO_GREETER=$greeter_sel
+  OS_IDENTITY_MODE=$( (( osid_sel == 1 )) && echo omarchy || echo cachyos )
   if (( limine_sel == 0 )); then BOOT_MODE=skip; fi
 
   tui_close
@@ -477,6 +509,11 @@ tui_run() {
     summary_text+=("  Login greeter   keep the current SDDM theme")
   else
     summary_text+=("  Login greeter   Omarchy's SDDM theme")
+  fi
+  if [[ ${OS_IDENTITY_MODE:-cachyos} == omarchy ]]; then
+    summary_text+=("  System name     Omarchy")
+  else
+    summary_text+=("  System name     CachyOS")
   fi
   summary_text+=("" "Starting the install; sudo will ask for your password." "")
 

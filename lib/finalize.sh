@@ -277,6 +277,7 @@ finalize_install() {
   install_omarchy_herdr_guard
   install_omacachy_command
   write_state OMACACHY_BROWSER "${OMACACHY_BROWSER:-auto}"
+  write_state OMACACHY_OS_IDENTITY "${OS_IDENTITY_MODE:-cachyos}"
 
   write_state OMACACHY_VERSION "$OMACACHY_VERSION"
   write_state OMACACHY_INSTALLED_AT "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -312,11 +313,21 @@ EOF
   echo
   cat <<EOF
  Kept from CachyOS: kernel, GPU drivers (chwd), pacman.conf, mirrors, keyrings
+EOF
+  if [[ ${OS_IDENTITY_MODE:-cachyos} == omarchy ]]; then
+    cat <<EOF
+ System identity: Omarchy (/etc/os-release follows Omarchy)
+ Installed from Omarchy's stable channel: the desktop, configs and lifecycle
+ Provisioned user: $TARGET_USER
+EOF
+  else
+    cat <<EOF
  Kept from CachyOS: the machine's hostname and /etc/os-release (also across
                     'omarchy update', through OmaCachy's pacman hook)
  Installed from Omarchy's stable channel: the desktop, configs and lifecycle
  Provisioned user: $TARGET_USER
 EOF
+  fi
 
   if (( NO_APPS )); then
     echo " Applications:    skipped (--no-apps): desktop, terminal and Omarchy CLI only"

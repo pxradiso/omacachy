@@ -16,6 +16,7 @@ BOOT_MODE_SET=0
 TUI_DONE=0
 NO_PROGRESS=0
 SETUP_FISH=0
+OS_IDENTITY_MODE="${OS_IDENTITY_MODE:-cachyos}"
 
 banner() {
   printf '\n%s  OmaCachy %s%s - Omarchy %s on CachyOS\n\n' \
@@ -76,6 +77,14 @@ parse_install_args() {
         ;;
       --setup-fish)
         SETUP_FISH=1
+        shift
+        ;;
+      --os-identity)
+        OS_IDENTITY_MODE=${2:-}
+        shift 2
+        ;;
+      --os-identity=*)
+        OS_IDENTITY_MODE=${1#*=}
         shift
         ;;
       --remove-existing-de)
@@ -148,6 +157,7 @@ Options:
       --browser NAME     browser to install/use (chromium, firefox, brave-bin,
                          zen-browser, helium-browser, auto)
       --setup-fish       install omarchy-fish and run omarchy-setup-fish for the user
+      --os-identity NAME show CachyOS or Omarchy in /etc/os-release (cachyos, omarchy)
       --no-apps          install the desktop without Omarchy's preinstalled
                          applications (Chromium, LibreOffice, Obsidian, ...)
       --remove-existing-de
@@ -189,6 +199,7 @@ reexec_as_root() {
   (( ALLOW_NON_BTRFS )) && fwd+=(--allow-non-btrfs)
   (( WITH_NVIDIA )) && fwd+=(--with-nvidia)
   [[ -n ${OMACACHY_BROWSER:-} && ${OMACACHY_BROWSER:-} != auto ]] && fwd+=(--browser "$OMACACHY_BROWSER")
+  [[ -n ${OS_IDENTITY_MODE:-} && ${OS_IDENTITY_MODE:-} != cachyos ]] && fwd+=(--os-identity "$OS_IDENTITY_MODE")
   (( NO_APPS )) && fwd+=(--no-apps)
   (( SETUP_FISH )) && fwd+=(--setup-fish)
   (( REMOVE_EXISTING_DE )) && fwd+=(--remove-existing-de)

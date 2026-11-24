@@ -143,6 +143,7 @@ Do you want the preinstalled applications of Omarchy?
 Do you want to uninstall your current DE or WM?
 Do you want to install Limine?
 Do you want Omarchy's login greeter?
+What system name do you want?
 Are you sure you want to continue?
 EOF
 
