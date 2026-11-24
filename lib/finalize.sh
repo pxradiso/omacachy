@@ -180,6 +180,79 @@ EOF
   info "Omarchy provisioning guard installed (survives omarchy update)"
 }
 
+OMACACHY_HERDR_PATCH=/usr/local/lib/omacachy/patch-omarchy-herdr-autostart
+OMACACHY_HERDR_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-herdr.hook
+
+patch_omarchy_herdr_autostart() {
+  local f=/usr/share/omarchy/default/hypr/autostart.lua
+  [[ -f $f ]] || return 0
+  grep -q 'omarchy-cmd-present herdr' "$f" && return 0
+
+  if (( DRY_RUN )); then
+    info "would patch herdr autostart to run only when herdr is installed"
+    return 0
+  fi
+
+  backup_file "$f" "$(basename \"$f\")"
+  python3 - <<'PY'
+from pathlib import Path
+p = Path('/usr/share/omarchy/default/hypr/autostart.lua')
+s = p.read_text()
+old = '  hl.exec_cmd(o.launch("herdr server"))'
+new = """  if o.cmd_present("herdr") then
+    hl.exec_cmd(o.launch("herdr server"))
+  end"""
+if old in s:
+    p.write_text(s.replace(old, new))
+PY
+  success "Patched herdr autostart: skipped when herdr is not installed"
+}
+
+install_omarchy_herdr_guard() {
+  if (( DRY_RUN )); then
+    info "would install $OMACACHY_HERDR_PATCH and $OMACACHY_HERDR_HOOK"
+    return 0
+  fi
+
+  install -d -m 0755 "$(dirname \"$OMACACHY_HERDR_PATCH\")"
+  cat >"$OMACACHY_HERDR_PATCH" <<'EOF'
+#!/bin/bash
+set -eu
+f=/usr/share/omarchy/default/hypr/autostart.lua
+[[ -f $f ]] || exit 0
+grep -q 'omarchy-cmd-present herdr' "$f" && exit 0
+python3 - <<'PY'
+from pathlib import Path
+p = Path('/usr/share/omarchy/default/hypr/autostart.lua')
+s = p.read_text()
+old = '  hl.exec_cmd(o.launch("herdr server"))'
+new = """  if o.cmd_present("herdr") then
+    hl.exec_cmd(o.launch("herdr server"))
+  end"""
+if old in s:
+    p.write_text(s.replace(old, new))
+    print('OmaCachy: patched herdr autostart guard')
+PY
+EOF
+  chmod 0755 "$OMACACHY_HERDR_PATCH"
+
+  install -d -m 0755 /etc/pacman.d/hooks
+  cat >"$OMACACHY_HERDR_HOOK" <<'EOF'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = omarchy-settings
+
+[Action]
+Description = Patching Omarchy herdr autostart guard (OmaCachy)
+When = PostTransaction
+Exec = /usr/local/lib/omacachy/patch-omarchy-herdr-autostart
+EOF
+  chmod 0644 "$OMACACHY_HERDR_HOOK"
+  info "Omarchy herdr autostart guard installed (survives omarchy update)"
+}
+
 finalize_install() {
   step "finalize: default session and recorded state"
 
@@ -200,6 +273,8 @@ finalize_install() {
   install_omarchy_env_guard
   patch_omarchy_provision_user
   install_omarchy_provision_guard
+  patch_omarchy_herdr_autostart
+  install_omarchy_herdr_guard
   install_omacachy_command
   write_state OMACACHY_BROWSER "${OMACACHY_BROWSER:-auto}"
 
