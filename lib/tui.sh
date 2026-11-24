@@ -31,6 +31,8 @@ TUI_ALT_ON=$'\033[?1049h'
 TUI_ALT_OFF=$'\033[?1049l'
 TUI_CURSOR_OFF=$'\033[?25l'
 TUI_CURSOR_ON=$'\033[?25h'
+TUI_WRAP_OFF=$'\033[?7l'
+TUI_WRAP_ON=$'\033[?7h'
 TUI_CLEAR=$'\033[2J\033[H'
 TUI_RESET=$'\033[0m'
 TUI_BOLD=$'\033[1m'
@@ -130,14 +132,14 @@ tui_open() {
   export GUM_FILTER_SHOW_HELP=false
   export GUM_INPUT_SHOW_HELP=false
 
-  printf '%s%s%s' "$TUI_ALT_ON" "$TUI_CURSOR_OFF" "$TUI_CLEAR" >&3
+  printf '%s%s%s%s' "$TUI_ALT_ON" "$TUI_CURSOR_OFF" "$TUI_WRAP_OFF" "$TUI_CLEAR" >&3
   trap 'tui_close; exit 130' INT TERM
   return 0
 }
 
 tui_close() {
   (( TUI_ACTIVE )) || return 0
-  printf '%s%s' "$TUI_CURSOR_ON" "$TUI_ALT_OFF" >&3 2>/dev/null || true
+  printf '%s%s%s' "$TUI_CURSOR_ON" "$TUI_WRAP_ON" "$TUI_ALT_OFF" >&3 2>/dev/null || true
   if [[ -n $TUI_STTY ]]; then stty "$TUI_STTY" <&3 2>/dev/null || true; fi
   exec 3>&-
   TUI_ACTIVE=0
@@ -581,7 +583,7 @@ tui_progress_start() {
   TUI_STTY=$(stty -g <&3 2>/dev/null || true)
   TUI_UTF8=0
   if tui_utf8; then TUI_UTF8=1; fi
-  printf '%s%s%s' "$TUI_ALT_ON" "$TUI_CURSOR_OFF" "$TUI_CLEAR" >&3
+  printf '%s%s%s%s' "$TUI_ALT_ON" "$TUI_CURSOR_OFF" "$TUI_WRAP_OFF" "$TUI_CLEAR" >&3
 
   if ! mkdir -p "$OMACACHY_LOG_DIR" 2>/dev/null; then
     tui_close
@@ -744,7 +746,7 @@ tui_progress_exit() {
     wait "$TUI_PROGRESS_RENDER_PID" 2>/dev/null || true
   fi
 
-  printf '%s%s' "$TUI_CURSOR_ON" "$TUI_ALT_OFF" >&3 2>/dev/null || true
+  printf '%s%s%s' "$TUI_CURSOR_ON" "$TUI_WRAP_ON" "$TUI_ALT_OFF" >&3 2>/dev/null || true
   if [[ -n $TUI_STTY ]]; then stty "$TUI_STTY" <&3 2>/dev/null || true; fi
 
   {
