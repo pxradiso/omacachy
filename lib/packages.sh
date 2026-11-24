@@ -40,7 +40,6 @@ OMARCHY_APP_PACKAGES=(
   dotnet-runtime
   evince
   gliff
-  gnome-disk-utility
   herdr
   hype
   imv
@@ -55,8 +54,6 @@ OMARCHY_APP_PACKAGES=(
   mpv-mpris
   nano
   nano-syntax-highlighting
-  nautilus
-  nautilus-python
   obs-studio
   obsidian
   omacalc
@@ -66,7 +63,6 @@ OMARCHY_APP_PACKAGES=(
   signal-desktop
   signed
   spotify
-  sushi
   superwhisper-bin
   system-config-printer
   tldr
