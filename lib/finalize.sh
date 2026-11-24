@@ -13,6 +13,8 @@ OMACACHY_VERSION_CHANNEL_PATCH=/usr/local/lib/omacachy/patch-omarchy-version-cha
 OMACACHY_VERSION_CHANNEL_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-version-channel.hook
 OMACACHY_FASTFETCH_PATCH=/usr/local/lib/omacachy/patch-omarchy-fastfetch
 OMACACHY_FASTFETCH_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-fastfetch.hook
+OMACACHY_OPENCODE_RESTART_PATCH=/usr/local/lib/omacachy/patch-omarchy-opencode-restart
+OMACACHY_OPENCODE_RESTART_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-opencode-restart.hook
 
 install_omacachy_command() {
   local bin=/usr/local/bin/omacachy
@@ -312,6 +314,75 @@ EOF
 }
 
 
+patch_omarchy_opencode_restart() {
+  local f=/usr/bin/omarchy-restart-opencode
+  [[ -f $f ]] || return 0
+  grep -q 'opencode.exe' "$f" && return 0
+
+  if (( DRY_RUN )); then
+    info "would patch omarchy-restart-opencode for opencode.exe processes"
+    return 0
+  fi
+
+  backup_file "$f" "$(basename "$f")"
+  cat >"$f" <<'EOF'
+#!/bin/bash
+
+# omarchy:summary=Reload opencode configuration (used by the Omarchy theme switching).
+
+for pat in opencode opencode.exe; do
+  pgrep -x "$pat" >/dev/null 2>&1 && pkill -SIGUSR2 -x "$pat" 2>/dev/null || true
+done
+EOF
+  chmod 0755 "$f"
+  success "Patched omarchy-restart-opencode for opencode.exe"
+}
+
+install_omarchy_opencode_restart_guard() {
+  local f=/usr/bin/omarchy-restart-opencode
+  [[ -f $f ]] || return 0
+
+  if (( DRY_RUN )); then
+    info "would install omarchy-restart-opencode guard/hook"
+    return 0
+  fi
+
+  mkdir -p /usr/local/lib/omacachy /etc/pacman.d/hooks
+  cat >"$OMACACHY_OPENCODE_RESTART_PATCH" <<'EOF'
+#!/bin/bash
+set -euo pipefail
+f=/usr/bin/omarchy-restart-opencode
+[[ -f $f ]] || exit 0
+grep -q 'opencode.exe' "$f" && exit 0
+cat >"$f" <<'SCRIPT'
+#!/bin/bash
+
+# omarchy:summary=Reload opencode configuration (used by the Omarchy theme switching).
+
+for pat in opencode opencode.exe; do
+  pgrep -x "$pat" >/dev/null 2>&1 && pkill -SIGUSR2 -x "$pat" 2>/dev/null || true
+done
+SCRIPT
+chmod 0755 "$f"
+echo "OmaCachy: patched omarchy-restart-opencode for opencode.exe"
+EOF
+  chmod 0755 "$OMACACHY_OPENCODE_RESTART_PATCH"
+
+  cat >"$OMACACHY_OPENCODE_RESTART_HOOK" <<EOF
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = omarchy
+
+[Action]
+Description = Keeping omarchy-restart-opencode compatible with opencode.exe (OmaCachy)
+When = PostTransaction
+Exec = $OMACACHY_OPENCODE_RESTART_PATCH
+EOF
+  info "omarchy-restart-opencode guard installed (survives omarchy update)"
+}
+
 patch_omarchy_provision_user() {
   local f=/usr/bin/omarchy-provision-user
   [[ -f $f ]] || return 0
@@ -576,6 +647,8 @@ finalize_install() {
   install_omarchy_version_channel_guard
   patch_omarchy_fastfetch_config
   install_omarchy_fastfetch_guard
+  patch_omarchy_opencode_restart
+  install_omarchy_opencode_restart_guard
   patch_omarchy_provision_user
   install_omarchy_provision_guard
   patch_omarchy_herdr_autostart
