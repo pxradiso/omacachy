@@ -65,6 +65,7 @@ for an unattended install.
 | Distribution | CachyOS (Arch-like systems work, with a warning) |
 | Firmware | UEFI |
 | Root filesystem | BTRFS (snapshots + rollback are part of Omarchy) |
+| Disk encryption | LUKS is not required |
 | Bootloader | Limine is required by Omarchy's packages; see [docs/bootloader.md](docs/bootloader.md) |
 | ESP | vfat, mounted at `/efi`, `/boot/efi`, `/boot` or `/limine`; ≥ 1 GiB free |
 | Disk | ≥ 10 GiB free on `/` |
