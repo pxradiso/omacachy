@@ -129,5 +129,6 @@ system_upgrade() {
     info "Resolving pipewire-jack / jack2 conflict (CachyOS-first: keeps jack2)"
     run pacman -R --noconfirm pipewire-jack 2>/dev/null || true
   fi
-  run pacman -Su --noconfirm || die "System upgrade failed. Fix pacman first, then rerun omacachy."
+  # Omarchy's pacman guard blocks direct -Su; allow it for OmaCachy's managed upgrade.
+  run env OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman -Su --noconfirm || die "System upgrade failed. Fix pacman first, then rerun omacachy."
 }
