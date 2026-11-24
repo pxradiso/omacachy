@@ -140,6 +140,52 @@ setup_omarchy_fish() {
   success "Omarchy fish setup complete for $TARGET_USER"
 }
 
+prune_optional_omarchy_apps() {
+  (( NO_APPS )) || return 0
+
+  local home=$TARGET_HOME
+  local apps_dir="$home/.local/share/applications"
+  local -a remove=(
+    "Alacritty.desktop"
+    "Basecamp.desktop"
+    "Discord.desktop"
+    "Google Contacts.desktop"
+    "Google Maps.desktop"
+    "Google Messages.desktop"
+    "Google Photos.desktop"
+    "HEY.desktop"
+    "WhatsApp.desktop"
+    "X.desktop"
+    "YouTube.desktop"
+    "Zoom.desktop"
+    "imv.desktop"
+    "imv-dir.desktop"
+    "micro.desktop"
+    "org.gnome.meld.desktop"
+  )
+  local f
+
+  step "user: prune optional Omarchy apps/webapps (--no-apps)"
+
+  if (( DRY_RUN )); then
+    info "would remove optional desktop entries from $apps_dir"
+    return 0
+  fi
+
+  mkdir -p "$apps_dir"
+  for f in "${remove[@]}"; do
+    rm -f "$apps_dir/$f"
+  done
+
+  # Keep omasnap: needed for screenshots.
+  # Refresh desktop database if available.
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    run_as_user "$TARGET_USER" update-desktop-database "$apps_dir" >/dev/null 2>&1 || true
+  fi
+
+  success "Optional Omarchy apps/webapps pruned (omasnap kept)"
+}
+
 provision_user() {
   local log="$OMACACHY_LOG_DIR/omarchy-user.log"
   local marker

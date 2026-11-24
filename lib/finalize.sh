@@ -7,6 +7,12 @@ _OMACACHY_FINALIZE=1
 
 OMACACHY_ENV_PATCH=/usr/local/lib/omacachy/patch-omarchy-env
 OMACACHY_ENV_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-env.hook
+OMACACHY_PROVISION_PATCH=/usr/local/lib/omacachy/patch-omarchy-provision
+OMACACHY_PROVISION_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-provision.hook
+
+install_omacachy_command() {
+  local bin=/usr/local/bin/omacachy
+  local target="$OMACACHY_REPO/bin/omacachy"
   local browser_bin=/usr/local/bin/omacachy-browser-default
   local browser_target="$OMACACHY_REPO/bin/omacachy-browser-default"
 
@@ -17,20 +23,24 @@ OMACACHY_ENV_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-env.hook
 
   if (( DRY_RUN )); then
     info "would symlink $bin -> $target"
+    [[ -x $browser_target ]] && info "would symlink $browser_bin -> $browser_target"
+    return 0
+  fi
+
+  mkdir -p /usr/local/bin
+  ln -sfn "$target" "$bin"
   [[ -x $browser_target ]] && ln -sfn "$browser_target" "$browser_bin"
   success "Installed omacachy command: $bin"
 }
 
 patch_omarchy_fastfetch_env() {
   local f
->>>>>>> eb3d3d7 (Add hardware-aware skips, browser selection, limine OS name, and fish setup)
+
   if (( DRY_RUN )); then
     info "would ensure omarchy-i18n/omarchy-language default OMARCHY_PATH"
     return 0
   fi
-<<<<<<< HEAD
 
-=======
   for f in /usr/bin/omarchy-i18n /usr/bin/omarchy-language; do
     [[ -f $f ]] || continue
     grep -q 'OMARCHY_PATH:=/usr/share/omarchy' "$f" && continue
@@ -79,6 +89,115 @@ EOF
   info "Omarchy env guard installed (survives omarchy update)"
 }
 
+
+patch_omarchy_provision_user() {
+  local f=/usr/bin/omarchy-provision-user
+  [[ -f $f ]] || return 0
+  grep -q 'omacachy-browser-default' "$f" && return 0
+
+  if (( DRY_RUN )); then
+    info "would patch omarchy-provision-user to avoid hard chromium dependency"
+    return 0
+  fi
+
+  backup_file "$f" "$(basename "$f")"
+  python3 - <<'PY'
+from pathlib import Path
+p = Path('/usr/bin/omarchy-provision-user')
+s = p.read_text()
+old = """omarchy-refresh-applications
+env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser chromium.desktop
+xdg-mime default HEY.desktop x-scheme-handler/mailto"""
+new = """omarchy-refresh-applications
+if command -v omacachy-browser-default >/dev/null 2>&1; then
+  omacachy-browser-default
+else
+  browser_desktop=chromium.desktop
+  for b in chromium.desktop firefox.desktop brave-browser.desktop zen-browser.desktop helium-browser.desktop; do
+    [[ -f /usr/share/applications/$b ]] && browser_desktop=$b && break
+  done
+  env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser "$browser_desktop" || true
+fi
+xdg-mime default HEY.desktop x-scheme-handler/mailto || true"""
+if old in s:
+    p.write_text(s.replace(old, new))
+PY
+  success "Patched omarchy-provision-user: browser default is resilient"
+}
+
+install_omarchy_provision_guard() {
+  if (( DRY_RUN )); then
+    info "would install $OMACACHY_PROVISION_PATCH and $OMACACHY_PROVISION_HOOK"
+    return 0
+  fi
+
+  install -d -m 0755 "$(dirname "$OMACACHY_PROVISION_PATCH")"
+  cat >"$OMACACHY_PROVISION_PATCH" <<'EOF'
+#!/bin/bash
+set -eu
+f=/usr/bin/omarchy-provision-user
+[[ -f $f ]] || exit 0
+grep -q 'omacachy-browser-default' "$f" && exit 0
+python3 - <<'PY'
+from pathlib import Path
+p = Path('/usr/bin/omarchy-provision-user')
+s = p.read_text()
+old = """omarchy-refresh-applications
+env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser chromium.desktop
+xdg-mime default HEY.desktop x-scheme-handler/mailto"""
+new = """omarchy-refresh-applications
+if command -v omacachy-browser-default >/dev/null 2>&1; then
+  omacachy-browser-default
+else
+  browser_desktop=chromium.desktop
+  for b in chromium.desktop firefox.desktop brave-browser.desktop zen-browser.desktop helium-browser.desktop; do
+    [[ -f /usr/share/applications/$b ]] && browser_desktop=$b && break
+  done
+  env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser "$browser_desktop" || true
+fi
+xdg-mime default HEY.desktop x-scheme-handler/mailto || true"""
+if old in s:
+    p.write_text(s.replace(old, new))
+    print('OmaCachy: patched omarchy-provision-user browser default')
+PY
+EOF
+  chmod 0755 "$OMACACHY_PROVISION_PATCH"
+
+  install -d -m 0755 /etc/pacman.d/hooks
+  cat >"$OMACACHY_PROVISION_HOOK" <<'EOF'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = omarchy
+
+[Action]
+Description = Patching Omarchy user provisioning browser default (OmaCachy)
+When = PostTransaction
+Exec = /usr/local/lib/omacachy/patch-omarchy-provision
+EOF
+  chmod 0644 "$OMACACHY_PROVISION_HOOK"
+  info "Omarchy provisioning guard installed (survives omarchy update)"
+}
+
+finalize_install() {
+  step "finalize: default session and recorded state"
+
+  # Afterwards, too: the overlay's last steps must not leave Omarchy's
+  # os-release behind either.
+  restore_os_release
+
+  run systemctl daemon-reload
+  if systemctl list-unit-files --no-legend --no-pager sddm.service 2>/dev/null | grep -q .; then
+    run systemctl enable sddm.service
+    ensure_sddm_login_user
+  else
+    warn "sddm.service is not installed; Omarchy expects SDDM as the display manager"
+  fi
+  run systemctl set-default graphical.target
+
+  patch_omarchy_fastfetch_env
+  install_omarchy_env_guard
   patch_omarchy_provision_user
   install_omarchy_provision_guard
   install_omacachy_command

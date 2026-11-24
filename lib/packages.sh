@@ -27,8 +27,10 @@ OMACACHY_BROWSER_CHOICES=(chromium firefox brave-bin zen-browser helium-browser)
 # audio, networking, the file-manager integration and the Omarchy CLI.
 OMARCHY_APP_PACKAGES=(
   aether
+  alacritty
   chromium
   cliamp
+  discord
   disktree-bin
   evince
   gliff
@@ -38,6 +40,8 @@ OMARCHY_APP_PACKAGES=(
   imv
   libreoffice-fresh
   localsend
+  meld
+  micro
   monologue
   moonlight-qt
   mpv
@@ -49,12 +53,15 @@ OMARCHY_APP_PACKAGES=(
   omacut
   omawrite
   pinta
+  signal-desktop
   signed
+  spotify
   sushi
   superwhisper-bin
   system-config-printer
   tobi-try
   ttf-ia-writer
+  typora
 )
 
 OMACACHY_BROWSER_PACKAGES=(chromium firefox brave-bin zen-browser helium-browser)

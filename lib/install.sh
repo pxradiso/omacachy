@@ -290,6 +290,7 @@ install_main() {
     ensure_tty_fastfetch
     setup_omarchy_fish
     provision_user
+    prune_optional_omarchy_apps
   fi
 
   finalize_install
