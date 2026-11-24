@@ -120,7 +120,14 @@ EOF
 }
 
 setup_omarchy_fish() {
-  (( SETUP_FISH )) || return 0
+  local shell_choice=${OMACACHY_SHELL:-fish}
+
+  if [[ $shell_choice == bash ]]; then
+    setup_omarchy_bash
+    return 0
+  fi
+
+  (( SETUP_FISH )) || [[ ${OMACACHY_SHELL_EXPLICIT:-0} == 1 ]] || return 0
 
   step "user: setup Omarchy fish shell"
 
@@ -138,6 +145,53 @@ setup_omarchy_fish() {
   run_as_user "$TARGET_USER" omarchy-setup-fish || warn "omarchy-setup-fish reported an error"
   ensure_tty_fastfetch
   success "Omarchy fish setup complete for $TARGET_USER"
+}
+
+setup_omarchy_bash() {
+  local home=$TARGET_HOME group bashrc skel_bashrc backup
+  local fish_cfg fish_backup
+
+  step "user: setup Omarchy bash shell"
+
+  bashrc="$home/.bashrc"
+  skel_bashrc=/etc/skel/.bashrc
+  group=$(id -gn "$TARGET_USER")
+
+  if (( DRY_RUN )); then
+    info "would set $TARGET_USER shell to bash"
+    (( BACKUP_FISH )) && info "would back up $home/.config/fish"
+    info "would install Omarchy bashrc for $TARGET_USER"
+    return 0
+  fi
+
+  if (( BACKUP_FISH )); then
+    fish_cfg="$home/.config/fish"
+    if [[ -e $fish_cfg ]]; then
+      fish_backup="$home/.config/fish.backup-omacachy-$(date +%Y%m%d-%H%M%S)"
+      cp -a "$fish_cfg" "$fish_backup"
+      chown -R "$TARGET_USER:$group" "$fish_backup" 2>/dev/null || true
+      success "Backed up fish config to $fish_backup"
+    else
+      info "No fish config to back up at $fish_cfg"
+    fi
+  fi
+
+  if [[ -f $bashrc ]]; then
+    backup="$home/.bashrc.backup-omacachy-$(date +%Y%m%d-%H%M%S)"
+    cp -a "$bashrc" "$backup"
+    chown "$TARGET_USER:$group" "$backup" 2>/dev/null || true
+    info "Backed up existing .bashrc to $backup"
+  fi
+
+  if [[ -f $skel_bashrc ]]; then
+    install -m 0644 -o "$TARGET_USER" -g "$group" "$skel_bashrc" "$bashrc"
+  else
+    warn "Missing $skel_bashrc; keeping existing .bashrc"
+  fi
+
+  chsh -s /bin/bash "$TARGET_USER" || warn "Could not change login shell to bash for $TARGET_USER"
+  ensure_tty_fastfetch
+  success "Omarchy bash shell configured for $TARGET_USER"
 }
 
 prune_optional_omarchy_apps() {

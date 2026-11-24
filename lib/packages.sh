@@ -14,8 +14,8 @@ _OMACACHY_PACKAGES=1
 WITH_NVIDIA="${WITH_NVIDIA:-0}"
 NO_APPS="${NO_APPS:-0}"
 
-# Browser chosen by the user/TUI. "auto" picks the first installed/sensible one.
-OMACACHY_BROWSER="${OMACACHY_BROWSER:-auto}"
+# Browser chosen by the user/TUI.
+OMACACHY_BROWSER="${OMACACHY_BROWSER:-chromium}"
 
 # Core browsers shown in installer choices; other installed desktops are kept as
 # possible defaults.
@@ -42,7 +42,6 @@ OMARCHY_APP_PACKAGES=(
   gliff
   herdr
   hype
-  imv
   kdenlive
   libreoffice-fresh
   localsend
@@ -147,10 +146,10 @@ load_skip_policy() {
   SKIP_REASON[omarchy-power-profiles-daemon]="CachyOS (chwd) owns the power-profiles daemon"
 
   if (( NO_APPS )); then
-    local selected_browser=${OMACACHY_BROWSER:-auto}
+    local selected_browser=${OMACACHY_BROWSER:-chromium}
     for p in "${OMARCHY_APP_PACKAGES[@]}"; do
       # Respect an explicit browser choice even in --no-apps mode.
-      if [[ $selected_browser != auto && $p == "$selected_browser" ]]; then
+      if [[ $p == "$selected_browser" ]]; then
         continue
       fi
       SKIP_REASON[$p]="--no-apps"
@@ -184,22 +183,9 @@ browser_desktop_for_package() {
 }
 
 resolve_omacachy_browser() {
-  local choice=${OMACACHY_BROWSER:-auto}
-  local p
-
-  if [[ $choice != auto ]]; then
-    printf '%s\n' "$choice"
-    return 0
-  fi
-
-  for p in "${OMACACHY_BROWSER_CHOICES[@]}"; do
-    if pkg_installed "$p"; then
-      printf '%s\n' "$p"
-      return 0
-    fi
-  done
-
-  printf 'chromium\n'
+  local choice=${OMACACHY_BROWSER:-chromium}
+  [[ $choice == auto ]] && choice=chromium
+  printf '%s\n' "$choice"
 }
 
 build_package_set() {
@@ -221,15 +207,12 @@ build_package_set() {
     PACKAGES+=("$p")
   done < <(read_omarchy_packages)
 
-  # Ensure selected browser is present. In --no-apps mode, keep only the
-  # explicitly chosen browser (or auto fallback) and skip other app bloat.
+  # Ensure selected browser is present.
   if [[ -n $selected_browser ]]; then
-    if (( ! NO_APPS )) || [[ ${OMACACHY_BROWSER:-auto} != auto ]]; then
-      case " ${PACKAGES[*]} " in
-        *" $selected_browser "*) ;;
-        *) PACKAGES+=("$selected_browser") ;;
-      esac
-    fi
+    case " ${PACKAGES[*]} " in
+      *" $selected_browser "*) ;;
+      *) PACKAGES+=("$selected_browser") ;;
+    esac
   fi
 }
 

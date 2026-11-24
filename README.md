@@ -42,12 +42,13 @@ starts the same interactive setup.
 
 `./install.sh` starts an interactive setup (also when it is piped from
 `curl -fsSL .../install.sh | bash`). It asks whether to install Omarchy's
-preinstalled applications, whether to remove the desktop environment that is
-already on the machine, how to handle Limine, and whether to keep the current
-SDDM greeter. Every question has a safe default; the last one asks for
-confirmation before `sudo` is requested. The screens use `gum`, the same
-toolkit as Omarchy's own installer, and the installer adds it if missing. Pass
-`--yes` (or set `OMACACHY_NO_TUI=1`) for an unattended install.
+preinstalled applications, which browser to use, whether to use Fish or Bash,
+whether to remove the desktop environment that is already on the machine, how
+to handle Limine, and whether to keep the current SDDM greeter. Every question
+has a safe default; the last one asks for confirmation before `sudo` is
+requested. The screens use `gum`, the same toolkit as Omarchy's own installer,
+and the installer adds it if missing. Pass `--yes` (or set `OMACACHY_NO_TUI=1`)
+for an unattended install.
 
 > Upstream Omarchy 4.x is ISO-only: it ships a prebuilt btrfs image with Arch
 > packages. OmaCachy does not fork it, does not rebuild it and does not clone
@@ -107,6 +108,10 @@ The installer can be re-run at any time: every phase is idempotent.
   --boot MODE        refuse | register | convert | skip   (default: refuse)
   --with-nvidia      install Omarchy's NVIDIA packages instead of leaving the
                      GPU stack to CachyOS/chwd
+  --browser NAME     browser to install/use (chromium, firefox, brave-bin,
+                     zen-browser, helium-browser)
+  --shell NAME       user shell: fish or bash (default: fish)
+  --backup-fish      when --shell bash, back up ~/.config/fish first
   --no-apps          desktop only: skip Omarchy's preinstalled apps and optional bloat
   --remove-existing-de
                      remove the desktop environment/window manager already
@@ -123,12 +128,11 @@ The installer can be re-run at any time: every phase is idempotent.
 ```
 
 `--no-apps` installs the desktop only: Omarchy's preinstalled end-user apps
-and optional bloat packages are skipped (browsers, office/media apps, Docker,
+and optional bloat packages are skipped (office/media apps, Docker,
 1Password, editors/terminal extras like nano/vim/alacritty, Omarchy app bundle,
-web app launchers, etc.). The shell, Hyprland/SDDM session, terminal basics,
+web app launchers, imv, etc.). The shell, Hyprland/SDDM session, terminal basics,
 fonts, audio, networking, input methods and Omarchy's CLI are always installed.
-In `--no-apps` mode, browser `Auto` installs no extra browser; pick a browser
-explicitly if you want one.
+The selected browser is still installed.
 
 ## What it changes
 

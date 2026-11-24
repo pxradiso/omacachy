@@ -16,6 +16,8 @@ BOOT_MODE_SET=0
 TUI_DONE=0
 NO_PROGRESS=0
 SETUP_FISH=0
+OMACACHY_SHELL="${OMACACHY_SHELL:-fish}"
+BACKUP_FISH=0
 OS_IDENTITY_MODE="${OS_IDENTITY_MODE:-cachyos}"
 
 banner() {
@@ -77,6 +79,22 @@ parse_install_args() {
         ;;
       --setup-fish)
         SETUP_FISH=1
+        OMACACHY_SHELL=fish
+        OMACACHY_SHELL_EXPLICIT=1
+        shift
+        ;;
+      --shell)
+        OMACACHY_SHELL=${2:-}
+        [[ $OMACACHY_SHELL == bash || $OMACACHY_SHELL == fish ]] || die "--shell needs bash or fish"
+        shift 2
+        ;;
+      --shell=*)
+        OMACACHY_SHELL=${1#*=}
+        [[ $OMACACHY_SHELL == bash || $OMACACHY_SHELL == fish ]] || die "--shell needs bash or fish"
+        shift
+        ;;
+      --backup-fish)
+        BACKUP_FISH=1
         shift
         ;;
       --os-identity)
@@ -155,8 +173,10 @@ Options:
       --with-nvidia      install Omarchy's NVIDIA packages instead of leaving
                          the GPU stack to CachyOS/chwd
       --browser NAME     browser to install/use (chromium, firefox, brave-bin,
-                         zen-browser, helium-browser, auto)
+                         zen-browser, helium-browser)
       --setup-fish       install omarchy-fish and run omarchy-setup-fish for the user
+      --shell NAME       user shell: fish or bash (default: fish)
+      --backup-fish      when --shell bash, back up fish config before switching
       --os-identity NAME show CachyOS or Omarchy in /etc/os-release (cachyos, omarchy)
       --no-apps          install the desktop without Omarchy's preinstalled
                          applications (Chromium, LibreOffice, Obsidian, ...)
@@ -198,10 +218,16 @@ reexec_as_root() {
   (( VERBOSE )) && fwd+=(-v)
   (( ALLOW_NON_BTRFS )) && fwd+=(--allow-non-btrfs)
   (( WITH_NVIDIA )) && fwd+=(--with-nvidia)
-  [[ -n ${OMACACHY_BROWSER:-} && ${OMACACHY_BROWSER:-} != auto ]] && fwd+=(--browser "$OMACACHY_BROWSER")
+  [[ -n ${OMACACHY_BROWSER:-} ]] && fwd+=(--browser "$OMACACHY_BROWSER")
   [[ -n ${OS_IDENTITY_MODE:-} && ${OS_IDENTITY_MODE:-} != cachyos ]] && fwd+=(--os-identity "$OS_IDENTITY_MODE")
   (( NO_APPS )) && fwd+=(--no-apps)
   (( SETUP_FISH )) && fwd+=(--setup-fish)
+  if (( ${OMACACHY_SHELL_EXPLICIT:-0} )); then
+    fwd+=(--shell "${OMACACHY_SHELL:-fish}")
+  elif [[ ${OMACACHY_SHELL:-fish} != fish ]]; then
+    fwd+=(--shell "$OMACACHY_SHELL")
+  fi
+  (( BACKUP_FISH )) && fwd+=(--backup-fish)
   (( REMOVE_EXISTING_DE )) && fwd+=(--remove-existing-de)
   (( NO_GREETER )) && fwd+=(--no-greeter)
   (( SKIP_PACKAGES )) && fwd+=(--skip-packages)

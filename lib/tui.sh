@@ -284,13 +284,15 @@ tui_message() {
 # --- setup wizard -----------------------------------------------------------
 
 tui_run() {
-  local apps_sel de_sel limine_sel entry_sel greeter_sel osid_sel browser_sel
+  local apps_sel de_sel limine_sel entry_sel greeter_sel osid_sel browser_sel shell_sel backup_fish_sel
   local -a summary
   local detect_de=0 action=0
 
   apps_sel=$(( NO_APPS ? 1 : 0 ))
   de_sel=$(( REMOVE_EXISTING_DE ? 0 : 1 ))
   greeter_sel=$(( NO_GREETER ? 1 : 0 ))
+  shell_sel=$([[ ${OMACACHY_SHELL:-fish} == bash ]] && echo 1 || echo 0)
+  backup_fish_sel=$(( BACKUP_FISH ? 0 : 1 ))
   osid_sel=0
   [[ ${OS_IDENTITY_MODE:-cachyos} == omarchy ]] && osid_sel=1
   limine_sel=0
@@ -347,16 +349,14 @@ tui_run() {
     fi
 
     # 3. Default browser.
-    local browser_sel="${OMACACHY_BROWSER:-auto}"
+    local browser_sel="${OMACACHY_BROWSER:-chromium}"
+    [[ $browser_sel == auto ]] && browser_sel=chromium
     if (( ! SKIP_PACKAGES )); then
       tui_frame "" \
-        "Choose the default browser to install and set as default." \
-        "" \
-        "With preinstalled apps: Auto keeps the normal Omarchy choice (Chromium)." \
-        "With desktop only: Auto installs no extra browser."
+        "Choose the default browser to install and set as default."
       tui_measure
       tui_hint 'Up/Down: move   Enter: confirm   Ctrl+C: abort'
-      local browser_choice browser_status=0 browser_selected="Auto"
+      local browser_choice browser_status=0 browser_selected="Chromium"
       case "$browser_sel" in
         chromium) browser_selected="Chromium" ;;
         firefox) browser_selected="Firefox" ;;
@@ -366,7 +366,7 @@ tui_run() {
       esac
       browser_choice=$(GUM_CHOOSE_PADDING="0 0 0 $TUI_PAD" \
         gum choose \
-          --height 6 \
+          --height 5 \
           --header "Which browser do you want as default?" \
           --header.foreground "$GUM_CYAN" \
           --cursor.foreground "$GUM_GREEN" \
@@ -374,7 +374,7 @@ tui_run() {
           --selected.foreground "$GUM_DARK" \
           --selected.background "$GUM_GREEN" \
           --selected "$browser_selected" \
-          -- "Auto" "Chromium" "Firefox" "Brave" "Zen Browser" "Helium Browser" </dev/tty 2>&3) || browser_status=$?
+          -- "Chromium" "Firefox" "Brave" "Zen Browser" "Helium Browser" </dev/tty 2>&3) || browser_status=$?
       (( browser_status == 0 )) || tui_abort
       case "$browser_choice" in
         "Chromium") browser_sel=chromium ;;
@@ -382,13 +382,35 @@ tui_run() {
         "Brave") browser_sel=brave-bin ;;
         "Zen Browser") browser_sel=zen-browser ;;
         "Helium Browser") browser_sel=helium-browser ;;
-        *) browser_sel=auto ;;
+        *) browser_sel=chromium ;;
       esac
     else
-      browser_sel=auto
+      browser_sel=chromium
     fi
 
-    # 4. Limine.
+    # 4. Shell.
+    local shell_default=fish
+    [[ ${OMACACHY_SHELL:-fish} == bash ]] && shell_default=bash
+    if tui_yes_no \
+      "Do you want Fish as your default shell?" \
+      "$( [[ $shell_default == fish ]] && echo yes || echo no )" \
+      "Fish is Omarchy's default shell experience." \
+      "" \
+      "Bash keeps Omarchy's bash defaults. If you choose Bash, you can" \
+      "optionally back up your existing fish config."; then
+      shell_sel=0
+      backup_fish_sel=1
+    else
+      shell_sel=1
+      if tui_yes_no "Do you want to back up your existing fish config?" no \
+        "This copies ~/.config/fish to a timestamped backup before switching to Bash."; then
+        backup_fish_sel=0
+      else
+        backup_fish_sel=1
+      fi
+    fi
+
+    # 5. Limine.
     local limine_default=yes
     [[ $BOOT_MODE == skip ]] && limine_default=no
     while :; do
@@ -480,13 +502,17 @@ tui_run() {
       summary+=("Browser        unchanged (--skip-packages)")
     else
       case "$browser_sel" in
-        chromium) summary+=("Browser        Chromium") ;;
         firefox) summary+=("Browser        Firefox") ;;
         brave-bin) summary+=("Browser        Brave") ;;
         zen-browser) summary+=("Browser        Zen Browser") ;;
         helium-browser) summary+=("Browser        Helium Browser") ;;
-        *) if (( apps_sel == 0 )); then summary+=("Browser        Auto (Chromium)"); else summary+=("Browser        None (desktop only)"); fi ;;
+        *) summary+=("Browser        Chromium") ;;
       esac
+    fi
+    if (( shell_sel == 1 )); then
+      if (( backup_fish_sel == 0 )); then summary+=("Shell          Bash (backup fish)"); else summary+=("Shell          Bash"); fi
+    else
+      summary+=("Shell          Fish")
     fi
     if (( detect_de == 0 )); then
       summary+=("Current DE/WM  none detected")
@@ -536,7 +562,11 @@ tui_run() {
   REMOVE_EXISTING_DE=$(( de_sel == 0 ? 1 : 0 ))
   NO_GREETER=$greeter_sel
   OS_IDENTITY_MODE=$( (( osid_sel == 1 )) && echo omarchy || echo cachyos )
-  OMACACHY_BROWSER=${browser_sel:-auto}
+  OMACACHY_BROWSER=${browser_sel:-chromium}
+  OMACACHY_SHELL=$( (( shell_sel == 1 )) && echo bash || echo fish )
+  OMACACHY_SHELL_EXPLICIT=1
+  BACKUP_FISH=$(( backup_fish_sel == 0 ? 1 : 0 ))
+  SETUP_FISH=$(( shell_sel == 0 ? 1 : 0 ))
   if (( limine_sel == 0 )); then BOOT_MODE=skip; fi
 
   tui_close
@@ -551,14 +581,18 @@ tui_run() {
     summary_text+=("  Applications    Omarchy's preinstalled apps")
   fi
   if (( ! SKIP_PACKAGES )); then
-    case "${OMACACHY_BROWSER:-auto}" in
-      chromium) summary_text+=("  Browser         Chromium") ;;
+    case "${OMACACHY_BROWSER:-chromium}" in
       firefox) summary_text+=("  Browser         Firefox") ;;
       brave-bin) summary_text+=("  Browser         Brave") ;;
       zen-browser) summary_text+=("  Browser         Zen Browser") ;;
       helium-browser) summary_text+=("  Browser         Helium Browser") ;;
-      *) if (( NO_APPS )); then summary_text+=("  Browser         None (desktop only)"); else summary_text+=("  Browser         Auto (Chromium)"); fi ;;
+      *) summary_text+=("  Browser         Chromium") ;;
     esac
+  fi
+  if [[ ${OMACACHY_SHELL:-fish} == bash ]]; then
+    if (( BACKUP_FISH )); then summary_text+=("  Shell           Bash (fish config backed up)"); else summary_text+=("  Shell           Bash"); fi
+  else
+    summary_text+=("  Shell           Fish")
   fi
   if (( detect_de == 0 )); then
     summary_text+=("  Current DE/WM   none detected")

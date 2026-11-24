@@ -35,7 +35,9 @@ if [[ -z $ROOT || ! -f $ROOT/bin/omacachy ]]; then
 
   echo "OmaCachy: fetching $URL into $DEST"
   if [[ -d $DEST/.git ]]; then
-    git -C "$DEST" pull --ff-only
+    if ! git -C "$DEST" pull --ff-only 2>/dev/null; then
+      echo "OmaCachy: could not update $DEST (local changes or git issue); using existing checkout" >&2
+    fi
   else
     mkdir -p "$(dirname "$DEST")"
     git clone --depth 1 "$URL" "$DEST"
