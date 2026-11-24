@@ -39,6 +39,24 @@ is_cachyos_os_release() {
   grep -qE '^(ID=cachyos|NAME="?CachyOS( Linux)?"?)$' "$file" 2>/dev/null
 }
 
+# CachyOS's branding hook sets PRETTY_NAME="CachyOS". On a converted machine the
+# user expects the version in the system name, so we normalize it to
+# "CachyOS versione <VERSION_ID>" (or BUILD_ID/rolling as fallback).
+format_cachyos_os_release() {
+  local file=$1 version
+  [[ -f $file ]] || return 0
+  is_cachyos_os_release "$file" || return 0
+
+  version=$(sed -n 's/^VERSION_ID=//p' "$file" | tail -1 | tr -d '"'"'"'')
+  [[ -n $version ]] || version=$(sed -n 's/^BUILD_ID=//p' "$file" | tail -1 | tr -d '"'"'"'')
+  [[ -n $version ]] || version=rolling
+
+  sed -i \
+    -e 's|^NAME=.*$|NAME="CachyOS Linux"|' \
+    -e "s|^PRETTY_NAME=.*$|PRETTY_NAME=\"CachyOS versione ${version}\"|" \
+    "$file"
+}
+
 # Older runs (or a manual `backup_file` before a package upgrade) may already
 # have stored the original in the backup directory.
 find_saved_os_release() {
@@ -68,6 +86,7 @@ reconstruct_cachyos_os_release() {
 
   cp -a /etc/os-release "$OMACACHY_OS_RELEASE_ORIGINAL"
   chmod 0644 "$OMACACHY_OS_RELEASE_ORIGINAL"
+  format_cachyos_os_release "$OMACACHY_OS_RELEASE_ORIGINAL"
   success "Rebuilt the CachyOS /etc/os-release with cachyos-branding"
 }
 
@@ -91,6 +110,7 @@ capture_os_release() {
   if is_usable_os_release /etc/os-release; then
     cp -a /etc/os-release "$OMACACHY_OS_RELEASE_ORIGINAL"
     chmod 0644 "$OMACACHY_OS_RELEASE_ORIGINAL"
+    format_cachyos_os_release "$OMACACHY_OS_RELEASE_ORIGINAL"
     if is_cachyos_os_release "$OMACACHY_OS_RELEASE_ORIGINAL"; then
       success "Recorded CachyOS's /etc/os-release"
     else
@@ -102,6 +122,7 @@ capture_os_release() {
   if saved=$(find_saved_os_release); then
     cp -a "$saved" "$OMACACHY_OS_RELEASE_ORIGINAL"
     chmod 0644 "$OMACACHY_OS_RELEASE_ORIGINAL"
+    format_cachyos_os_release "$OMACACHY_OS_RELEASE_ORIGINAL"
     success "Recovered the original /etc/os-release from $saved"
     return 0
   fi
@@ -179,6 +200,23 @@ set -eu
 
 original='$original'
 [[ -f \$original ]] || exit 0
+
+format_cachyos_os_release() {
+  local file=\$1 version
+  [[ -f \$file ]] || return 0
+  grep -qE '^(ID=cachyos|NAME="?CachyOS( Linux)?"?)\$' "\$file" 2>/dev/null || return 0
+  version=\$(sed -n 's/^VERSION_ID=//p' "\$file" | tail -1 | tr -d '"'"'"')
+  [[ -n \$version ]] || version=\$(sed -n 's/^BUILD_ID=//p' "\$file" | tail -1 | tr -d '"'"'"')
+  [[ -n \$version ]] || version=rolling
+  sed -i \
+    -e 's|^NAME=.*\$|NAME="CachyOS Linux"|' \
+    -e "s|^PRETTY_NAME=.*\$|PRETTY_NAME=\\"CachyOS versione \${version}\\"|" \
+    "\$file"
+}
+
+# Keep the recorded copy in the desired format too, in case it was captured
+# before OmaCachy started normalizing PRETTY_NAME.
+format_cachyos_os_release "\$original"
 
 if ! grep -qx 'ID=omarchy' /etc/os-release 2>/dev/null; then
   exit 0

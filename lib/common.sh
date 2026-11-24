@@ -29,6 +29,7 @@ OMACACHY_BASELINE_FILE="${OMACACHY_BASELINE_FILE:-$OMACACHY_STATE_DIR/mkinitcpio
 DRY_RUN="${DRY_RUN:-0}"
 ASSUME_YES="${ASSUME_YES:-0}"
 VERBOSE="${VERBOSE:-0}"
+TUI_LOG_REDIRECTED="${TUI_LOG_REDIRECTED:-0}"
 
 if [[ -t 1 && -z ${NO_COLOR:-} ]]; then
   C_RESET=$'\033[0m' C_BOLD=$'\033[1m' C_DIM=$'\033[2m'
@@ -55,7 +56,7 @@ _log() {
   shift 3
   local msg=$*
   printf '%s%s%s %s\n' "$color" "$level" "$C_RESET" "$msg" >&"$stream"
-  if [[ -n ${_OMACACHY_LOG_READY:-} ]]; then
+  if [[ -n ${_OMACACHY_LOG_READY:-} ]] && (( ! TUI_LOG_REDIRECTED )); then
     printf '[%s] %-5s %s\n' "$(_log_ts)" "$level" "$msg" >>"$OMACACHY_LOG_FILE"
   fi
 }
@@ -71,6 +72,9 @@ die() {
 }
 
 step() {
+  if declare -F tui_progress_phase >/dev/null 2>&1; then
+    tui_progress_phase "$*"
+  fi
   printf '\n%s==> %s%s\n' "$C_BOLD" "$*" "$C_RESET"
   info "$*"
 }

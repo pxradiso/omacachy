@@ -28,6 +28,14 @@ The preferences are written **before** the packages are installed, because
 soon as the package is installed. `/etc/default/limine` overrides Omarchy's
 drop-ins.
 
+The installer also copies the machine's own boot parameters (`cryptdevice=`,
+`root=`, `rootflags=`, `rootfstype=`, `resume=`, ...) from `/etc/kernel/cmdline`
+or `/proc/cmdline` into `/etc/default/limine`, and writes
+`/etc/kernel/cmdline` when it is missing. This is required: `limine-entry-tool`
+ignores `/etc/kernel/cmdline` as soon as a `KERNEL_CMDLINE[*]` entry exists, and
+Omarchy's drop-in always adds one. Without the copy, a LUKS root is not unlocked
+and the kernel reports that it cannot find the root partition.
+
 Current EFI boot entries are saved with `efibootmgr -v` to
 `/var/lib/omacachy/backups/efibootmgr.before.txt` before anything changes.
 

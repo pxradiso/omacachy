@@ -101,6 +101,34 @@ grep -q -- 'fwd=(--user "$resolved_user" --tui-done)' lib/install.sh &&
   ok "sudo re-exec marks the TUI as done" ||
   bad "sudo re-exec does not mark the TUI as done"
 
+# Full-screen UI: the wizard and the progress view.
+grep -q -- '--no-progress' lib/install.sh && ok "install accepts --no-progress" ||
+  bad "install does not accept --no-progress"
+grep -q 'tui_progress_start' lib/install.sh && ok "install shows the progress view" ||
+  bad "install never starts the progress view"
+grep -q 'tui_progress_phase' lib/common.sh && ok "step() feeds the progress view" ||
+  bad "step() does not feed the progress view"
+grep -q 'gum confirm' lib/tui.sh && ok "setup uses gum widgets" ||
+  bad "setup does not use gum"
+grep -q 'tui_ensure_gum' lib/tui.sh && ok "setup can install gum" ||
+  bad "setup does not install gum when missing"
+
+# Yes/No must keep a fixed order; the default is preselected, not swapped.
+grep -q -- '--selected "$selected"' lib/tui.sh &&
+  ok "Yes/No keeps a fixed order with a preselected default" ||
+  bad "Yes/No order depends on the default"
+grep -q 'gum choose' lib/tui.sh &&
+  ok "Yes/No uses gum choose" ||
+  bad "Yes/No does not use gum choose"
+
+# Limine entries need the machine's LUKS/root parameters, not only Omarchy's.
+grep -q 'KERNEL_CMDLINE\[default\]' lib/system.sh &&
+  ok "Limine entries inherit the machine's kernel cmdline" ||
+  bad "Limine entries do not get cryptdevice/root"
+grep -q 'sd-btrfs-overlayfs' lib/overlay.sh &&
+  ok "mkinitcpio picks the overlay hook that matches the initramfs" ||
+  bad "mkinitcpio does not handle systemd initramfs"
+
 echo
 echo "== TUI questions =="
 while IFS= read -r question; do

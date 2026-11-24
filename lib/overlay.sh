@@ -64,7 +64,6 @@ write_mkinitcpio_dropin() {
   local dropin=/etc/mkinitcpio.conf.d/05-omacachy-hooks.conf
   local baseline
   local -a hooks new
-  local has_systemd=0
 
   if [[ ! -r $OMACACHY_BASELINE_FILE ]]; then
     warn "Skipping mkinitcpio baseline drop-in (no baseline recorded)"
@@ -74,27 +73,14 @@ write_mkinitcpio_dropin() {
   baseline=$(<"$OMACACHY_BASELINE_FILE")
   read -r -a hooks <<<"$baseline"
 
-  # CachyOS ships busybox hooks (udev, block, filesystems, fsck, ...).
-  # sd-btrfs-overlayfs (required by Omarchy's Limine UKI flow) needs the
-  # systemd hook. If the baseline has no systemd hook, convert the busybox
-  # equivalents so sd-btrfs-overlayfs can run.
+  # Omarchy needs a btrfs overlay hook, and limine-mkinitcpio-hook ships two:
+  # btrfs-overlayfs for the busybox initramfs and sd-btrfs-overlayfs for the
+  # systemd one. Keep the distro's HOOKS exactly as captured and add only the
+  # variant that matches it. Forcing systemd would break CachyOS's own
+  # encrypt/keymap/consolefont hooks and can leave an encrypted root locked.
+  local overlay_hook=btrfs-overlayfs
   if [[ " ${hooks[*]} " == *" systemd "* ]]; then
-    has_systemd=1
-  fi
-
-  if (( !has_systemd )); then
-    local -a converted=()
-    local h
-    for h in "${hooks[@]}"; do
-      case $h in
-        udev) converted+=(systemd) ;;
-        # block, filesystems, fsck exist in both busybox and systemd;
-        # there are no systemd-block/systemd-filesystems hooks.
-        *) converted+=("$h") ;;
-      esac
-    done
-    hooks=("${converted[@]}")
-    info "mkinitcpio: converted CachyOS busybox hooks to systemd hooks (sd-btrfs-overlayfs needs them)"
+    overlay_hook=sd-btrfs-overlayfs
   fi
 
   if [[ " ${hooks[*]} " != *" plymouth "* ]]; then
@@ -113,7 +99,10 @@ write_mkinitcpio_dropin() {
     hooks=("${new[@]}")
   fi
 
-  [[ " ${hooks[*]} " == *" btrfs-overlayfs "* ]] || hooks+=(btrfs-overlayfs)
+  if [[ " ${hooks[*]} " != *" btrfs-overlayfs "* &&
+    " ${hooks[*]} " != *" sd-btrfs-overlayfs "* ]]; then
+    hooks+=("$overlay_hook")
+  fi
 
   if (( DRY_RUN )); then
     info "would write $dropin with HOOKS=(${hooks[*]})"
@@ -128,7 +117,8 @@ write_mkinitcpio_dropin() {
     echo "# replaces HOOKS wholesale with Omarchy's line. That would drop whatever the"
     echo "# distro added to its initramfs (LUKS variant, TPM, resume, ...). This drop-in"
     echo "# is sourced after it and restores the baseline captured when OmaCachy ran,"
-    echo "# adding only the hooks Omarchy needs: plymouth and btrfs-overlayfs."
+    echo "# adding only the hooks Omarchy needs: plymouth and the btrfs overlay"
+    echo "# hook that matches the initramfs (btrfs-overlayfs or sd-btrfs-overlayfs)."
     echo "HOOKS=(${hooks[*]})"
   } >"$dropin"
   chmod 0644 "$dropin"

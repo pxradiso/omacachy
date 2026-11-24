@@ -166,6 +166,20 @@ EOF
     doc_warn "sddm.service is not enabled"
   fi
 
+  if [[ -r /var/lib/sddm/state.conf ]]; then
+    local sddm_user
+    sddm_user=$(sed -n 's/^User=//p' /var/lib/sddm/state.conf | tail -1)
+    if [[ -n $TARGET_USER && $sddm_user == "$TARGET_USER" ]]; then
+      doc_ok "SDDM preselects $TARGET_USER (Omarchy's greeter has no username field)"
+    elif [[ -z $sddm_user ]]; then
+      doc_fail "SDDM has no last user: Omarchy's greeter will send an empty username"
+    else
+      doc_warn "SDDM preselects '$sddm_user', not ${TARGET_USER:-the target user}"
+    fi
+  else
+    doc_warn "cannot read /var/lib/sddm/state.conf (run doctor with sudo to check the greeter user)"
+  fi
+
   if systemctl get-default 2>/dev/null | grep -q graphical.target; then
     doc_ok "default systemd target is graphical.target"
   else

@@ -19,6 +19,12 @@ SDDM_CONFIG_DIR=/etc/sddm.conf.d
 OMACACHY_GREETER_DROPIN="$SDDM_CONFIG_DIR/zz-omacachy-greeter.conf"
 OMACACHY_GREETER_RESTORE=/usr/local/lib/omacachy/restore-greeter
 OMACACHY_GREETER_HOOK=/etc/pacman.d/hooks/omacachy-greeter.hook
+# SDDM stores the last user and session here (StateConfig in sddm's source).
+# Omarchy's greeter theme has no username field: it logs in
+# userModel.lastUser, which is the Last.User value from this file. A converted
+# CachyOS machine can have no value yet (autologin never writes one), and then
+# every password is sent for an empty user name and the greeter looks broken.
+OMACACHY_SDDM_STATE=/var/lib/sddm/state.conf
 
 sddm_theme_from_file() {
   local file=$1
@@ -162,4 +168,50 @@ EOF
   chmod 0644 "$OMACACHY_GREETER_HOOK"
 
   info "SDDM greeter guard installed (survives omarchy update)"
+}
+
+# Omarchy's greeter is a password-only theme: it has no username field, it calls
+# sddm.login(userModel.lastUser, ...) and SDDM reads that name from
+# /var/lib/sddm/state.conf. Seed both Last.User and Last.Session so a machine
+# that used autologin (or another session) can log in after the conversion.
+ensure_sddm_login_user() {
+  local state=$OMACACHY_SDDM_STATE
+  local user=${TARGET_USER:-}
+  local dir owner group
+
+  if [[ -z $user ]]; then
+    warn "login: no target user; cannot preselect the SDDM account"
+    return 0
+  fi
+  pkg_installed sddm || {
+    warn "SDDM is not installed; skipping the login state"
+    return 0
+  }
+
+  dir=$(dirname "$state")
+  owner=$(stat -c %U "$dir" 2>/dev/null || echo sddm)
+  group=$(stat -c %G "$dir" 2>/dev/null || echo sddm)
+
+  if (( DRY_RUN )); then
+    info "would write $state: Last.User=$user, Last.Session=omarchy.desktop"
+    return 0
+  fi
+
+  mkdir -p "$dir"
+  backup_file "$state" sddm-state
+
+  # StateConfig only has the [Last] section. Rewrite it as a whole so a stale
+  # user or a session file that was removed cannot survive the conversion.
+  {
+    echo "[Last]"
+    echo "User=$user"
+    echo "Session=omarchy.desktop"
+  } >"$state"
+
+  # SDDM runs as an unprivileged account and refuses a state file it cannot
+  # read. Use the directory's owner when sddm has a different home directory.
+  chown "$owner:$group" "$state" 2>/dev/null || chown sddm:sddm "$state" 2>/dev/null || true
+  chmod 0600 "$state"
+
+  success "SDDM preselects $user and the Omarchy session (password login)"
 }

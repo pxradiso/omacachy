@@ -15,6 +15,7 @@ finalize_install() {
   run systemctl daemon-reload
   if systemctl list-unit-files --no-legend --no-pager sddm.service 2>/dev/null | grep -q .; then
     run systemctl enable sddm.service
+    ensure_sddm_login_user
   else
     warn "sddm.service is not installed; Omarchy expects SDDM as the display manager"
   fi

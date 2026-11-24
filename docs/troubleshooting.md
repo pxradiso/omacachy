@@ -208,6 +208,14 @@ It is skipped when:
 - `OMACACHY_NO_TUI=1` is set, or
 - there is no usable `/dev/tty` (for example inside a container).
 
+The setup screens need `gum`. The installer installs it with pacman when it is
+missing; if that fails (no network, for example) the setup is skipped and the
+command-line defaults are used. Install it yourself and rerun:
+
+```bash
+sudo pacman -S gum
+```
+
 Use the flags directly:
 
 ```bash

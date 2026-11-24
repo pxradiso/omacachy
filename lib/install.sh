@@ -14,6 +14,7 @@ REMOVE_EXISTING_DE=0
 NO_GREETER=0
 BOOT_MODE_SET=0
 TUI_DONE=0
+NO_PROGRESS=0
 
 banner() {
   printf '\n%s  OmaCachy %s%s - Omarchy %s on CachyOS\n\n' \
@@ -88,6 +89,10 @@ parse_install_args() {
         SKIP_UPGRADE=1
         shift
         ;;
+      --no-progress)
+        NO_PROGRESS=1
+        shift
+        ;;
       # Internal: set on the sudo re-exec so the interactive setup is not
       # shown a second time.
       --tui-done)
@@ -139,6 +144,7 @@ Options:
       --skip-system      do not run Omarchy system setup
       --skip-user        do not touch the user's home
       --no-upgrade       do not run the full system upgrade first
+      --no-progress      plain log output instead of the full-screen progress view
 EOF
   usage_common
   cat <<'EOF'
@@ -173,6 +179,7 @@ reexec_as_root() {
   (( SKIP_SYSTEM )) && fwd+=(--skip-system)
   (( SKIP_USER )) && fwd+=(--skip-user)
   (( SKIP_UPGRADE )) && fwd+=(--no-upgrade)
+  (( NO_PROGRESS )) && fwd+=(--no-progress)
   [[ $BOOT_MODE != refuse ]] && fwd+=(--boot "$BOOT_MODE")
 
   info "Requesting root privileges (sudo)"
@@ -192,6 +199,9 @@ install_main() {
   export LOGNAME="${LOGNAME:-root}"
 
   log_init
+  if (( ! NO_PROGRESS )); then
+    tui_progress_start || true
+  fi
   banner
 
   resolve_target_user "$USER_ARG"
@@ -259,6 +269,7 @@ install_main() {
     info "Skipping user provisioning (--skip-user)"
   else
     seed_skel
+    ensure_tty_fastfetch
     provision_user
   fi
 

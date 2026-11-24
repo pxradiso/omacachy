@@ -16,6 +16,102 @@ set_limine_kv() {
   fi
 }
 
+# Keep the parameters that actually boot this machine (LUKS, root device,
+# btrfs subvolume, resume). Presentation parameters are dropped because
+# Omarchy's limine-entry-tool drops add their own.
+boot_critical_cmdline() {
+  local line=$1 token
+  local -a kept=()
+  for token in $line; do
+    case $token in
+      BOOT_IMAGE=* | initrd=* | quiet | splash | loglevel=* | \
+        systemd.show_status=* | rd.udev.log_level=* | \
+        vt.global_cursor_default=* | systemd.tty.term.console=* | \
+        initramfs_async=*)
+        continue
+        ;;
+    esac
+    kept+=("$token")
+  done
+  printf '%s\n' "${kept[*]}"
+}
+
+# limine-entry-tool only falls back to /etc/kernel/cmdline or /proc/cmdline
+# when no KERNEL_CMDLINE[*] is configured. Omarchy's drop-in always configures
+# one, so a CachyOS LUKS root would be missing from every Limine entry:
+# the kernel then cannot open the container ("root partition not found").
+# Copy the machine's own parameters into both places.
+ensure_limine_cmdline() {
+  local file=$1
+  local kernel_cmdline=/etc/kernel/cmdline
+  local source='' params tmp src
+
+  if [[ -s $kernel_cmdline ]] && grep -qE '(^|[[:space:]])root=' "$kernel_cmdline"; then
+    source=$(<"$kernel_cmdline")
+  fi
+  # A CachyOS install with an encrypted root needs cryptdevice=. If the saved
+  # file does not have it, the running kernel's command line is authoritative.
+  if [[ $source != *cryptdevice=* && -r /proc/cmdline ]] &&
+    grep -q 'cryptdevice=' /proc/cmdline; then
+    source=$(</proc/cmdline)
+  fi
+  if [[ -z $source && -r /proc/cmdline ]] &&
+    grep -qE '(^|[[:space:]])root=' /proc/cmdline; then
+    source=$(</proc/cmdline)
+  fi
+
+  if [[ -z $source ]]; then
+    warn "bootloader: no kernel command line found; Limine entries may not find the root filesystem"
+    return 0
+  fi
+
+  params=$(boot_critical_cmdline "$source")
+  if [[ $params != *root=* ]]; then
+    warn "bootloader: the kernel command line has no root=; Limine entries may not boot"
+    return 0
+  fi
+
+  if [[ ! -s $kernel_cmdline ]] ||
+    ! grep -qE '(^|[[:space:]])root=' "$kernel_cmdline"; then
+    backup_file "$kernel_cmdline" kernel-cmdline
+    if (( DRY_RUN )); then
+      info "would record the kernel command line in $kernel_cmdline"
+    else
+      mkdir -p /etc/kernel
+      printf '%s\n' "$params" >"$kernel_cmdline"
+      chmod 0644 "$kernel_cmdline"
+      info "Recorded the kernel command line in $kernel_cmdline"
+    fi
+  fi
+
+  tmp=$(mktemp) || return 0
+  src=$file
+  [[ -f $src ]] || src=/dev/null
+  awk '
+    /^# OmaCachy: boot parameters/ { skip = 1; next }
+    skip && /^KERNEL_CMDLINE\[default\]\+=/ { skip = 0; next }
+    { print }
+  ' "$src" >"$tmp"
+  {
+    echo '# OmaCachy: boot parameters copied from this machine.'
+    printf 'KERNEL_CMDLINE[default]+="%s"\n' "$params"
+  } >>"$tmp"
+  if [[ -n $ESP_PATH ]] && ! grep -qE '^[[:space:]]*ESP_PATH=' "$tmp"; then
+    printf 'ESP_PATH="%s"\n' "$ESP_PATH" >>"$tmp"
+  fi
+
+  if (( DRY_RUN )); then
+    info "would add KERNEL_CMDLINE[default]+=\"$params\" to $file"
+    rm -f "$tmp"
+    return 0
+  fi
+
+  backup_file "$file" limine-default
+  install -m 0644 "$tmp" "$file"
+  rm -f "$tmp"
+  success "Limine boot parameters: root device and LUKS are preserved"
+}
+
 # Written *before* the packages are installed: limine-mkinitcpio-hook's pacman
 # hook runs limine-install on install, and /etc/default/limine overrides the
 # Omarchy drop-ins.
@@ -35,6 +131,7 @@ configure_bootloader_preferences() {
 
   if (( DRY_RUN )); then
     info "would set UEFI_BOOT_ORDER=$order and ENABLE_LIMINE_FALLBACK=$fallback in $file"
+    ensure_limine_cmdline "$file"
     return 0
   fi
 
@@ -43,6 +140,7 @@ configure_bootloader_preferences() {
   [[ -f $file ]] || : >"$file"
   set_limine_kv "$file" UEFI_BOOT_ORDER "$order"
   set_limine_kv "$file" ENABLE_LIMINE_FALLBACK "$fallback"
+  ensure_limine_cmdline "$file"
 
   if have efibootmgr && [[ -d $OMACACHY_BACKUP_DIR ]]; then
     efibootmgr -v >"$OMACACHY_BACKUP_DIR/efibootmgr.before.txt" 2>/dev/null || true

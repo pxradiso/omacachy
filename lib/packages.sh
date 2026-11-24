@@ -232,7 +232,7 @@ install_package_set() {
     fi
 
     # pacman crashed (e.g. "corrupted size vs. prev_size", SIGABRT): do not
-    # parse its partial output — treat the current package as an unexpected
+    # parse its partial output: treat the current package as an unexpected
     # error and skip it so the install can continue.
     if [[ $PACMAN_OUT =~ corrupted\ size|Aborted|core\ dumped|Segmentation\ fault ]]; then
       warn "pacman crashed while installing $pkg:"

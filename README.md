@@ -40,8 +40,9 @@ starts the same interactive setup.
 preinstalled applications, whether to remove the desktop environment that is
 already on the machine, how to handle Limine, and whether to keep the current
 SDDM greeter. Every question has a safe default; the last one asks for
-confirmation before `sudo` is requested. Pass `--yes` (or set
-`OMACACHY_NO_TUI=1`) for an unattended install.
+confirmation before `sudo` is requested. The screens use `gum`, the same
+toolkit as Omarchy's own installer, and the installer adds it if missing. Pass
+`--yes` (or set `OMACACHY_NO_TUI=1`) for an unattended install.
 
 > Upstream Omarchy 4.x is ISO-only: it ships a prebuilt btrfs image with Arch
 > packages. OmaCachy does not fork it, does not rebuild it and does not clone
@@ -62,6 +63,7 @@ confirmation before `sudo` is requested. Pass `--yes` (or set
 | ESP | vfat, mounted at `/efi`, `/boot/efi`, `/boot` or `/limine`; ≥ 1 GiB free |
 | Disk | ≥ 10 GiB free on `/` |
 | Account | a normal user with `sudo` (not root) |
+| Setup UI | `gum` (CachyOS `extra`); the installer adds it with pacman if missing |
 | Network | required during install |
 
 Omarchy's packages hard-depend on `limine`, `limine-mkinitcpio-hook`,
