@@ -3,7 +3,7 @@
 <br/>
 <br/>
 
-<img src="assets/omacachy.png" alt="OmaCachy Logo" width="300" />
+<img src="assets/omacachy.png" alt="OmaCachy Logo" width="400" />
 
 **Installs DHH's dotfiles ([Omarchy](https://omarchy.org)) on [CachyOS](https://cachyos.org).**
 
@@ -18,17 +18,17 @@ OmaCachy is the installer (`./install.sh`) and this repository. What ends up on
 the machine is **Omarchy**: Omarchy's packages, configs, CLI and update flow.
 CachyOS keeps what makes it CachyOS: its kernel, its `chwd` driver stack, its
 `pacman.conf`, mirrors and keyrings.
+Install it in 1 command!
+```bash
+curl -fsSL https://raw.githubusercontent.com/pxradiso/omacachy/main/install.sh | bash
+```
+
+Or Clone it:
 
 ```bash
 git clone https://github.com/pxradiso/omacachy
 cd omacachy
 ./install.sh
-```
-
-Or without cloning:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/pxradiso/omacachy/main/install.sh | bash
 ```
 
 The piped form clones the repository into
