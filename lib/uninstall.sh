@@ -1,25 +1,29 @@
 #!/bin/bash
 # shellcheck shell=bash
-# Guided uninstall/cleanup for OmaCachy. Keeps user data and does not touch
-# bootloader entries unless explicitly requested.
+# Guided uninstall/cleanup for OmaCachy + Omarchy.
 
 if [[ -n ${_OMACACHY_UNINSTALL:-} ]]; then return 0; fi
 _OMACACHY_UNINSTALL=1
 
-UNINSTALL_REMOVE_PACKAGES=0
-UNINSTALL_REMOVE_REPO=0
+UNINSTALL_REMOVE_PACKAGES=1
+UNINSTALL_REMOVE_REPO=1
+UNINSTALL_REMOVE_CONFIGS=1
 UNINSTALL_YES=${ASSUME_YES:-0}
 
 uninstall_usage() {
   cat <<'EOF'
 Usage: omacachy uninstall [options]
 
-Removes OmaCachy guards/hooks and restores CachyOS-managed files where possible.
-By default it does not remove Omarchy packages or the [omarchy] repo.
+Removes Omarchy and OmaCachy from this system. By default removes Omarchy
+packages, [omarchy] repo, and Omarchy/OmaCachy configs/guards. It does not
+remove Limine, boot entries, or personal non-Omarchy user data.
 
 Options:
-  --remove-packages   remove Omarchy/OmaCachy-installed desktop packages (interactive pacman)
-  --remove-repo       remove [omarchy] repo block from /etc/pacman.conf and refresh
+  --keep-packages     do not remove Omarchy packages
+  --keep-repo         do not remove [omarchy] repo from /etc/pacman.conf
+  --keep-configs      do not remove Omarchy/OmaCachy config files and state
+  --remove-packages   remove Omarchy packages (default)
+  --remove-repo       remove [omarchy] repo (default)
   -y, --yes           do not prompt for confirmation
   -n, --dry-run       print actions without changing anything
   -h, --help          show this help
@@ -43,6 +47,9 @@ confirm_uninstall() {
 uninstall_parse_args() {
   while (($#)); do
     case $1 in
+      --keep-packages) UNINSTALL_REMOVE_PACKAGES=0; shift ;;
+      --keep-repo) UNINSTALL_REMOVE_REPO=0; shift ;;
+      --keep-configs) UNINSTALL_REMOVE_CONFIGS=0; shift ;;
       --remove-packages) UNINSTALL_REMOVE_PACKAGES=1; shift ;;
       --remove-repo) UNINSTALL_REMOVE_REPO=1; shift ;;
       -y|--yes) UNINSTALL_YES=1; ASSUME_YES=1; shift ;;
@@ -60,7 +67,7 @@ rm_if_exists() {
       if (( DRY_RUN )); then
         info "would remove $f"
       else
-        rm -rf "$f"
+        rm -rf -- "$f"
         info "removed $f"
       fi
     fi
@@ -111,6 +118,10 @@ remove_omarchy_repo_block() {
   run pacman -Sy --noconfirm || warn "pacman -Sy failed after removing [omarchy] repo"
 }
 
+omarchy_installed_packages() {
+  pacman -Qq 2>/dev/null | grep -E '^(omarchy($|-)|omarchy-|hyprland($|-)|hypr[^ ]*-omarchy|quickshell($|-)|walker($|-)|hype($|-)|monologue($|-)|omacalc($|-)|omacut($|-)|omawrite($|-)|aether($|-)|cliamp($|-)|gliff($|-)|herdr($|-)|signed($|-)|tobi-try($|-)|disktree-bin($|-)|omarchy-keyring($|-))' | sort -u || true
+}
+
 remove_omarchy_packages() {
   (( UNINSTALL_REMOVE_PACKAGES )) || return 0
   local -a pkgs=()
@@ -118,15 +129,15 @@ remove_omarchy_packages() {
   while IFS= read -r p; do
     [[ -n $p ]] || continue
     pkgs+=("$p")
-  done < <(pacman -Qq 2>/dev/null | grep -E '^(omarchy($|-)|hype($|-)|monologue($|-)|omacalc($|-)|omacut($|-)|omawrite($|-)|aether($|-)|cliamp($|-)|gliff($|-)|herdr($|-)|signed($|-)|tobi-try($|-)|disktree-bin($|-))' | sort -u)
+  done < <(omarchy_installed_packages)
 
   if (( ${#pkgs[@]} == 0 )); then
     info "No Omarchy packages detected"
     return 0
   fi
 
-  warn "This will ask pacman to remove: ${pkgs[*]}"
-  warn "Review the transaction carefully before confirming in pacman."
+  warn "About to remove Omarchy packages: ${pkgs[*]}"
+  warn "Review the pacman transaction carefully before confirming."
   confirm_uninstall "Proceed with removing Omarchy packages?" || { info "Skipped package removal"; return 0; }
 
   if (( DRY_RUN )); then
@@ -134,21 +145,57 @@ remove_omarchy_packages() {
     return 0
   fi
 
-  pacman -Rns "${pkgs[@]}" || warn "Package removal failed or was cancelled; rerun after resolving pacman issues"
+  if ! pacman -Rns "${pkgs[@]}"; then
+    warn "Bulk removal failed; retrying without dependency cascade for remaining packages"
+    local -a remaining=()
+    while IFS= read -r p; do [[ -n $p ]] && remaining+=("$p"); done < <(omarchy_installed_packages)
+    if (( ${#remaining[@]} )); then
+      pacman -Rdd --noconfirm "${remaining[@]}" || warn "Some Omarchy packages could not be removed; rerun after resolving pacman issues"
+    fi
+  fi
 }
 
-uninstall_main() {
-  uninstall_parse_args "$@"
-  require_root
-  log_init
-  detect_distro || true
-  resolve_target_user "${SUDO_USER:-${USER:-}}" || true
+remove_omarchy_user_configs() {
+  (( UNINSTALL_REMOVE_CONFIGS )) || return 0
+  local home=$TARGET_HOME
+  [[ -n $home && -d $home ]] || { warn "Target home not found; skipping user config removal"; return 0; }
 
-  warn "OmaCachy uninstall removes OmaCachy hooks/guards and can optionally remove Omarchy packages."
-  warn "It does not remove Limine, user data, or boot entries."
-  confirm_uninstall "Continue with OmaCachy uninstall?" || die "Uninstall cancelled"
+  local -a paths=(
+    "$home/.config/omarchy"
+    "$home/.local/share/omarchy"
+    "$home/.local/state/omarchy"
+    "$home/.cache/omarchy"
+  )
+  rm_if_exists "${paths[@]}"
 
-  step "uninstall: remove OmaCachy hooks and helpers"
+  # Remove Omarchy webapp launchers/desktop entries in user applications.
+  local apps_dir="$home/.local/share/applications"
+  if [[ -d $apps_dir ]]; then
+    local f
+    while IFS= read -r -d '' f; do
+      if grep -qE 'Exec=.*(omarchy-|/usr/share/omarchy/|omarchy-launch-webapp|omarchy-webapp-handler)' "$f" 2>/dev/null; then
+        rm_if_exists "$f"
+      fi
+    done < <(find "$apps_dir" -maxdepth 1 -type f -name '*.desktop' -print0 2>/dev/null)
+    if command -v update-desktop-database >/dev/null 2>&1; then
+      run_as_user "$TARGET_USER" update-desktop-database "$apps_dir" >/dev/null 2>&1 || true
+    fi
+  fi
+
+  # Remove Omarchy-specific Hypr config only if it's clearly Omarchy-managed.
+  if [[ -f "$home/.config/hypr/hyprland.conf" ]] && grep -q '/usr/share/omarchy\|~/.config/omarchy' "$home/.config/hypr/hyprland.conf" 2>/dev/null; then
+    warn "Detected Omarchy-managed Hypr config at $home/.config/hypr/hyprland.conf"
+    if confirm_uninstall "Remove $home/.config/hypr Omarchy config?"; then
+      rm_if_exists "$home/.config/hypr"
+    else
+      info "Kept $home/.config/hypr"
+    fi
+  fi
+}
+
+remove_omarchy_system_configs() {
+  (( UNINSTALL_REMOVE_CONFIGS )) || return 0
+
   rm_if_exists \
     "$OMACACHY_OS_RELEASE_HOOK" \
     "$OMACACHY_OS_RELEASE_RESTORE" \
@@ -170,29 +217,93 @@ uninstall_main() {
     "$OMACACHY_LIMINE_NAME_PATCH" \
     /etc/sddm.conf.d/zz-omacachy-greeter.conf \
     /etc/mkinitcpio.conf.d/05-omacachy-hooks.conf \
-    /usr/local/bin/omacachy
+    /etc/limine-entry-tool.d/99-omacachy.conf \
+    /usr/local/bin/omacachy \
+    /usr/local/lib/omacachy
 
-  step "uninstall: restore system identity/config"
+  # Remove Omarchy-owned system config leftovers only if present.
+  rm_if_exists \
+    /etc/mkinitcpio.conf.d/00-omarchy-hooks.conf \
+    /etc/mkinitcpio.conf.d/omarchy_hooks.conf \
+    /etc/mkinitcpio.conf.d/omarchy_vconsole.conf \
+    /etc/pacman.d/hooks/omarchy-*.hook \
+    /usr/share/omarchy
+
+  # SDDM theme may still point at Omarchy; reset to a safe default if needed.
+  if [[ -f /etc/sddm.conf.d/10-theme.conf ]] && grep -qi omarchy /etc/sddm.conf.d/10-theme.conf 2>/dev/null; then
+    if (( DRY_RUN )); then
+      info "would remove Omarchy SDDM theme config /etc/sddm.conf.d/10-theme.conf"
+    else
+      backup_file /etc/sddm.conf.d/10-theme.conf 10-theme.conf.before-uninstall
+      rm -f /etc/sddm.conf.d/10-theme.conf
+      info "removed Omarchy SDDM theme config"
+    fi
+  fi
+}
+
+rebuild_initramfs_after_uninstall() {
+  if (( DRY_RUN )); then
+    info "would run mkinitcpio -P (if installed)"
+    return 0
+  fi
+  if command -v mkinitcpio >/dev/null 2>&1; then
+    run mkinitcpio -P || warn "mkinitcpio -P failed; check boot/initramfs state"
+  fi
+}
+
+uninstall_main() {
+  uninstall_parse_args "$@"
+  require_root
+  log_init
+  detect_distro || true
+  resolve_target_user "${SUDO_USER:-${USER:-}}" || true
+
+  warn "This will remove Omarchy/OmaCachy packages and configs according to selected options."
+  warn "Limine and boot entries are not removed."
+  confirm_uninstall "Continue with uninstall?" || die "Uninstall cancelled"
+
+  if (( UNINSTALL_REMOVE_PACKAGES )); then
+    detect_current_desktops || true
+    if (( ${#DETECTED_SESSION_PKGS[@]} == 0 )); then
+      warn "No other desktop environment/window manager session detected."
+      confirm_uninstall "Are you sure you want to continue without DE or WM?" || die "Uninstall cancelled"
+    fi
+  fi
+
+  step "uninstall: remove OmaCachy guards and Omarchy system configs"
+  remove_omarchy_system_configs
   restore_os_release_for_uninstall
   remove_omarchy_repo_block
 
-  if (( ! DRY_RUN )); then
-    if command -v mkinitcpio >/dev/null 2>&1; then
-      run mkinitcpio -P || warn "mkinitcpio -P failed; check boot/initramfs state"
-    fi
-  else
-    info "would run mkinitcpio -P"
-  fi
-
+  step "uninstall: remove Omarchy packages"
   remove_omarchy_packages
 
+  step "uninstall: remove Omarchy user configs"
+  remove_omarchy_user_configs
+
+  step "uninstall: rebuild initramfs"
+  rebuild_initramfs_after_uninstall
+
   step "uninstall: cleanup OmaCachy state"
-  if confirm_uninstall "Remove /var/lib/omacachy and /var/log/omacachy?"; then
-    rm_if_exists "$OMACACHY_STATE_DIR" "$OMACACHY_LOG_DIR"
+  local remove_state=0
+  if (( UNINSTALL_REMOVE_CONFIGS )); then
+    if confirm_uninstall "Remove /var/lib/omacachy and /var/log/omacachy?"; then
+      remove_state=1
+    else
+      info "Kept OmaCachy state/log directories"
+    fi
   else
-    info "Kept OmaCachy state/log directories"
+    info "Keeping OmaCachy state/log directories (--keep-configs)"
   fi
 
-  success "OmaCachy uninstall steps completed"
-  warn "Review docs/uninstall.md for bootloader/desktop restoration steps."
+  if (( remove_state )); then
+    _OMACACHY_LOG_READY=
+    TUI_LOG_REDIRECTED=1
+  fi
+  if (( remove_state )); then
+    rm_if_exists "$OMACACHY_STATE_DIR" "$OMACACHY_LOG_DIR"
+  fi
+
+  printf '%sOK%s OmaCachy uninstall steps completed\n' "${C_GREEN:-}" "${C_RESET:-}"
+  printf '%sWARN%s Reboot recommended. If you removed a desktop, install/login to another session first.\n' "${C_YELLOW:-}" "${C_RESET:-}" >&2
 }
