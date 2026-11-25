@@ -92,6 +92,16 @@ skip_add() {
 load_skip_policy() {
   SKIP_REASON=()
 
+  # Ensure hardware detection has run; default to "not detected" when unknown.
+  if declare -F detect_hardware >/dev/null 2>&1; then
+    detect_hardware 2>/dev/null || true
+  fi
+  IS_TUXEDO=${IS_TUXEDO:-0}
+  IS_ASUS=${IS_ASUS:-0}
+  IS_APPLE_T2=${IS_APPLE_T2:-0}
+  IS_DELL_XPS=${IS_DELL_XPS:-0}
+  HAS_NVIDIA_GPU=${HAS_NVIDIA_GPU:-0}
+
   # omacachy is CachyOS-first: the CachyOS kernel, its prebuilt NVIDIA modules
   # and chwd own the boot/kernel/driver layer. Omarchy's copies are not used.
   local p
