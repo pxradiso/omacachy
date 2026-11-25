@@ -489,10 +489,16 @@ tui_run() {
     # 5. The login greeter.
     local greeter_default=yes
     (( greeter_sel == 1 )) && greeter_default=no
+    local -a greeter_desc=(
+      "Omarchy ships its own SDDM greeter theme."
+      ""
+      "No keeps the SDDM theme that is active on this machine now."
+    )
+    if (( detect_de && de_sel == 1 )); then
+      greeter_desc+=("" "(If you keep another DE/WM installed, Omarchy's greeter may change the login experience; you can choose No to keep your current greeter.)")
+    fi
     if tui_yes_no "Do you want Omarchy's login greeter?" "$greeter_default" \
-      "Omarchy ships its own SDDM greeter theme." \
-      "" \
-      "No keeps the SDDM theme that is active on this machine now."; then
+      "${greeter_desc[@]}"; then
       greeter_sel=0
     else
       greeter_sel=1

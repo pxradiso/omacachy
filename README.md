@@ -193,6 +193,10 @@ that was active before the install by writing
 `/etc/sddm.conf.d/zz-omacachy-greeter.conf` and installing a pacman hook that
 reapplies it after `omarchy update`.
 
+If you keep another DE/WM installed and enable Omarchy's greeter, it can change
+the login experience for that desktop session. If you want to keep your current
+login flow, choose "No" for Omarchy's greeter.
+
 State, overlay and backups live in `/var/lib/omacachy`; logs in
 `/var/log/omacachy`.
 
