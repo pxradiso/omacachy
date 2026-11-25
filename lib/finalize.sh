@@ -641,11 +641,42 @@ EOF
   info "Limine OS name guard installed (survives omarchy/limine updates)"
 }
 
+apply_omacachy_fixes() {
+  local mode=${1:-install}
+
+  # Safe, idempotent repairs/guards. Run during install and after omacachy update.
+  restore_os_release || true
+
+  if (( EUID == 0 )); then
+    patch_omarchy_fastfetch_env || true
+    install_omarchy_env_guard || true
+    patch_omarchy_version_channel || true
+    install_omarchy_version_channel_guard || true
+    patch_omarchy_fastfetch_config || true
+    install_omarchy_fastfetch_guard || true
+    patch_omarchy_opencode_restart || true
+    install_omarchy_opencode_restart_guard || true
+    patch_omarchy_provision_user || true
+    install_omarchy_provision_guard || true
+    patch_omarchy_herdr_autostart || true
+    install_omarchy_herdr_guard || true
+    patch_omarchy_limine_name || true
+    install_omarchy_limine_name_guard || true
+    install_omacachy_command || true
+  else
+    info "Skipping system patch/guard application (requires root)"
+  fi
+
+  write_state OMACACHY_BROWSER "${OMACACHY_BROWSER:-$(state_get OMACACHY_BROWSER 2>/dev/null || echo chromium)}"
+  [[ -n ${OS_IDENTITY_MODE:-} ]] && write_state OMACACHY_OS_IDENTITY "$OS_IDENTITY_MODE" || true
+  write_state OMACACHY_VERSION "$OMACACHY_VERSION"
+  write_state OMACACHY_LAST_FIXES_AT "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  write_state OMACACHY_LAST_FIXES_MODE "$mode"
+}
+
 finalize_install() {
   step "finalize: default session and recorded state"
 
-  # Afterwards, too: the overlay's last steps must not leave Omarchy's
-  # os-release behind either.
   restore_os_release
 
   run systemctl daemon-reload
@@ -657,25 +688,8 @@ finalize_install() {
   fi
   run systemctl set-default graphical.target
 
-  patch_omarchy_fastfetch_env
-  install_omarchy_env_guard
-  patch_omarchy_version_channel
-  install_omarchy_version_channel_guard
-  patch_omarchy_fastfetch_config
-  install_omarchy_fastfetch_guard
-  patch_omarchy_opencode_restart
-  install_omarchy_opencode_restart_guard
-  patch_omarchy_provision_user
-  install_omarchy_provision_guard
-  patch_omarchy_herdr_autostart
-  install_omarchy_herdr_guard
-  patch_omarchy_limine_name
-  install_omarchy_limine_name_guard
-  install_omacachy_command
-  write_state OMACACHY_BROWSER "${OMACACHY_BROWSER:-auto}"
-  write_state OMACACHY_OS_IDENTITY "${OS_IDENTITY_MODE:-cachyos}"
+  apply_omacachy_fixes install
 
-  write_state OMACACHY_VERSION "$OMACACHY_VERSION"
   write_state OMACACHY_INSTALLED_AT "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
   write_state OMACACHY_USER "$TARGET_USER"
   write_state OMACACHY_CHANNEL "$OMACACHY_CHANNEL"

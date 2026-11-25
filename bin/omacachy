@@ -84,15 +84,17 @@ omacachy_update_hint() {
 }
 
 update_main() {
-  local repo branch before after dry=0
+  local repo branch before after dry=0 do_fix=1
   while (($#)); do
     case $1 in
       -n|--dry-run) dry=1; DRY_RUN=1; shift ;;
+      --no-fix) do_fix=0; shift ;;
       -h|--help)
         cat <<'EOF'
-Usage: omacachy update [--dry-run]
+Usage: omacachy update [--dry-run] [--no-fix]
 
 Checks GitHub for a newer OmaCachy checkout and fast-forward updates this repo only.
+After a successful update, applies known OmaCachy fixes/guards (requires sudo).
 It does not update system packages or Omarchy. Use 'omarchy update' for that.
 EOF
         return 0
@@ -119,22 +121,40 @@ EOF
   before=$(omacachy_git rev-parse --short HEAD 2>/dev/null || echo unknown)
   after=$(omacachy_git rev-parse --short "origin/$branch" 2>/dev/null || echo unknown)
 
+  local did_update=0
   if [[ $before == "$after" ]]; then
     success "OmaCachy is already up to date ($before)"
-    return 0
+  else
+    info "Update available: $before -> $after"
+    if (( dry || DRY_RUN )); then
+      info "would run: git -C $repo pull --ff-only origin $branch"
+      if (( do_fix )); then
+        info "would apply known OmaCachy fixes/guards after update (requires sudo)"
+      fi
+      return 0
+    fi
+
+    if ! omacachy_git pull --ff-only origin "$branch"; then
+      die "Could not fast-forward OmaCachy. Resolve local changes in $repo and retry"
+    fi
+    did_update=1
+    success "OmaCachy updated: $before -> $(omacachy_git rev-parse --short HEAD)"
   fi
 
-  info "Update available: $before -> $after"
-  if (( dry || DRY_RUN )); then
-    info "would run: git -C $repo pull --ff-only origin $branch"
-    return 0
+  if (( do_fix )); then
+    step "OmaCachy: apply known fixes/guards"
+    if (( EUID == 0 )); then
+      apply_omacachy_fixes update
+    elif have sudo; then
+      info "Applying fixes requires root; requesting sudo..."
+      sudo -E "$repo/bin/omacachy" __apply-fixes --from-update "${did_update}"
+    else
+      warn "Cannot apply fixes automatically (sudo not available). Run: sudo omacachy __apply-fixes"
+    fi
+  else
+    info "Skipped fix application (--no-fix)"
   fi
 
-  if ! omacachy_git pull --ff-only origin "$branch"; then
-    die "Could not fast-forward OmaCachy. Resolve local changes in $repo and retry"
-  fi
-
-  success "OmaCachy updated: $before -> $(omacachy_git rev-parse --short HEAD)"
   info "This command updates only OmaCachy. To update system/Omarchy packages, use: omarchy update"
 }
 
@@ -174,6 +194,13 @@ case $command in
   uninstall) uninstall_main "$@" ;;
   doctor) omacachy_update_hint || true; doctor_main "$@" ;;
   status) omacachy_update_hint || true; status_main ;;
+  __apply-fixes)
+    require_root
+    log_init
+    resolve_target_user "${SUDO_USER:-${USER:-}}" || true
+    apply_omacachy_fixes update
+    success "OmaCachy fixes/guards applied"
+    ;;
   version | --version | -V) echo "OmaCachy $OMACACHY_VERSION" ;;
   help | --help | -h) usage ;;
   *)

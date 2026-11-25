@@ -228,7 +228,7 @@ Update OmaCachy itself (repo/installer only, no system package update):
 omacachy update
 ```
 
-`omacachy update` checks GitHub and fast-forward pulls the OmaCachy checkout. It does not run `pacman`, `omarchy update`, or system upgrades.
+`omacachy update` checks GitHub and fast-forward pulls the OmaCachy checkout. After updating, it also applies known OmaCachy fixes/guards (idempotent; asks for sudo when needed). Use `--no-fix` to skip fix application. It does not run `pacman`, `omarchy update`, or system upgrades.
 
 ## Health checks
 
