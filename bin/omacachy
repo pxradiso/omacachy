@@ -39,17 +39,20 @@ source "$ROOT/lib/install.sh"
 
 usage() {
   cat <<EOF
-OmaCachy $OMACACHY_VERSION - Omarchy on CachyOS
+OmaCachy v$OMACACHY_VERSION
+Omarchy on CachyOS
 
 Usage: omacachy <command> [options]
 
 Commands:
+  ------------------------------------------------------------
   install     install/refresh Omarchy on this CachyOS system
   update      update OmaCachy from GitHub (does not update the system)
   uninstall   remove OmaCachy hooks/guards and optionally Omarchy packages
   doctor      read-only health checks
   status      show what is installed
   version     print the OmaCachy version
+  credits     show project credits
   help        this help
 
 Run 'omacachy install --help' for the install options.
@@ -224,12 +227,27 @@ status_main() {
 command=${1:-help}
 shift || true
 
+credits_main() {
+  cat <<'EOF'
+OmaCachy Credits
+
+  pxradiso    for making the project
+  CachyOS     base system, kernel, drivers, repos, and tooling
+  Omarchy     desktop experience, stable packages, and design inspiration
+  Arch Linux  package ecosystem and foundation
+  Hyprland    Wayland compositor
+
+Thanks to everyone contributing to these projects.
+EOF
+}
+
 case $command in
   install) omacachy_update_hint || true; install_main "$@" ;;
   update) update_main "$@" ;;
   uninstall) uninstall_main "$@" ;;
   doctor) omacachy_update_hint || true; doctor_main "$@" ;;
   status) omacachy_update_hint || true; status_main ;;
+  credits) credits_main ;;
   __apply-fixes)
     require_root
     log_init
