@@ -896,13 +896,31 @@ tui_progress_exit() {
       printf '  Log: %s\n' "$OMACACHY_LOG_FILE"
       printf '  Next: reboot, then pick the Omarchy session in SDDM.\n'
     else
-      printf '%s✗%s OmaCachy: install failed (exit %s).\n' "$TUI_RED$TUI_RESET" "$rc"
+      printf '%s✗%s OmaCachy: install failed (exit %s).\n' "$TUI_RED" "$TUI_RESET" "$rc"
       printf '  Last log lines:\n'
       tail -n 12 "$OMACACHY_LOG_FILE" 2>/dev/null | sed 's/^/    /'
       printf '  Full log: %s\n' "$OMACACHY_LOG_FILE"
     fi
     printf '\n'
   } >&3 2>/dev/null || true
+
+  if (( rc == 0 )) && (( ${OMACACHY_WANT_REBOOT_PROMPT:-0} )) && [[ -t 3 ]] && command -v gum >/dev/null 2>&1 && (( ! ASSUME_YES )); then
+    local reboot_answer=0
+    GUM_CONFIRM_PADDING="0 0 0 ${TUI_PAD:-2}" \
+      gum confirm \
+        --prompt.foreground "${GUM_CYAN:-6}" \
+        --selected.foreground "${GUM_DARK:-0}" \
+        --selected.background "${GUM_GREEN:-2}" \
+        --unselected.foreground "${GUM_TEXT:-7}" \
+        --affirmative 'Reboot now' --negative 'Later' \
+        'Do you want to reboot your system?' <&3 >&3 2>&3 || reboot_answer=$?
+    if (( reboot_answer == 0 )); then
+      printf '  Rebooting...\n' >&3 2>/dev/null || true
+      systemctl reboot >&3 2>&3 || reboot >&3 2>&3 || printf '  Could not reboot automatically; please reboot manually.\n' >&3 2>/dev/null || true
+    else
+      printf '  Reboot skipped. Reboot when ready.\n' >&3 2>/dev/null || true
+    fi
+  fi
 
   exec 3>&-
   TUI_ACTIVE=0

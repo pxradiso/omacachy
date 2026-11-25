@@ -825,6 +825,13 @@ EOF
   if (( DRY_RUN )); then
     return 0
   fi
+
+  # Progress/TUI owns the tty; let it ask with gum after drawing the success screen.
+  if (( ${TUI_PROGRESS_ACTIVE:-0} )); then
+    OMACACHY_WANT_REBOOT_PROMPT=1
+    return 0
+  fi
+
   prompt_reboot_after_install
 }
 
