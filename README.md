@@ -67,7 +67,7 @@ for an unattended install.
 | Requirement | Details |
 |---|---|
 | Distribution | CachyOS (Arch-like systems work, with a warning) |
-| Firmware | UEFI |
+| Firmware | UEFI (Working on a Legacy BIOS Support)|
 | Root filesystem | BTRFS (snapshots + rollback are part of Omarchy) |
 | Disk encryption | LUKS is not required |
 | Bootloader | Limine is required by Omarchy's packages; see [docs/bootloader.md](docs/bootloader.md) |
