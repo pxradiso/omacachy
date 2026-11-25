@@ -374,6 +374,7 @@ tui_run() {
       tui_hint 'Up/Down: move   Enter: confirm   Ctrl+C: abort'
       local browser_choice browser_status=0 browser_selected="Chromium"
       case "$browser_sel" in
+        none) browser_selected="No one" ;;
         chromium) browser_selected="Chromium" ;;
         firefox) browser_selected="Firefox" ;;
         brave-bin) browser_selected="Brave" ;;
@@ -382,7 +383,7 @@ tui_run() {
       esac
       browser_choice=$(GUM_CHOOSE_PADDING="0 0 0 $TUI_PAD" \
         gum choose \
-          --height 5 \
+          --height 6 \
           --header "Which browser do you want as default?" \
           --header.foreground "$GUM_CYAN" \
           --cursor.foreground "$GUM_GREEN" \
@@ -390,7 +391,7 @@ tui_run() {
           --selected.foreground "$GUM_DARK" \
           --selected.background "$GUM_GREEN" \
           --selected "$browser_selected" \
-          -- "Chromium" "Firefox" "Brave" "Zen Browser" "Helium Browser" </dev/tty 2>&3) || browser_status=$?
+          -- "Chromium" "Firefox" "Brave" "Zen Browser" "Helium Browser" "No one" </dev/tty 2>&3) || browser_status=$?
       (( browser_status == 0 )) || tui_abort
       case "$browser_choice" in
         "Chromium") browser_sel=chromium ;;
@@ -398,6 +399,7 @@ tui_run() {
         "Brave") browser_sel=brave-bin ;;
         "Zen Browser") browser_sel=zen-browser ;;
         "Helium Browser") browser_sel=helium-browser ;;
+        "No one") browser_sel=none ;;
         *) browser_sel=chromium ;;
       esac
     else
@@ -537,6 +539,7 @@ tui_run() {
         brave-bin) summary+=("Browser        Brave") ;;
         zen-browser) summary+=("Browser        Zen Browser") ;;
         helium-browser) summary+=("Browser        Helium Browser") ;;
+        none) summary+=("Browser        No one") ;;
         *) summary+=("Browser        Chromium") ;;
       esac
     fi
@@ -617,6 +620,7 @@ tui_run() {
       brave-bin) summary_text+=("  Browser         Brave") ;;
       zen-browser) summary_text+=("  Browser         Zen Browser") ;;
       helium-browser) summary_text+=("  Browser         Helium Browser") ;;
+      none) summary_text+=("  Browser         No one") ;;
       *) summary_text+=("  Browser         Chromium") ;;
     esac
   fi

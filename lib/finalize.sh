@@ -399,8 +399,16 @@ from pathlib import Path
 p = Path('/usr/bin/omarchy-provision-user')
 s = p.read_text()
 old = """omarchy-refresh-applications
-env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser chromium.desktop
-xdg-mime default HEY.desktop x-scheme-handler/mailto"""
+if command -v omacachy-browser-default >/dev/null 2>&1; then
+  omacachy-browser-default
+else
+  browser_desktop=""
+  for b in chromium.desktop firefox.desktop brave-browser.desktop zen-browser.desktop helium-browser.desktop; do
+    [[ -f /usr/share/applications/$b ]] && browser_desktop=$b && break
+  done
+  [[ -n $browser_desktop ]] && env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser "$browser_desktop" || true
+fi
+xdg-mime default HEY.desktop x-scheme-handler/mailto || true"""
 new = """omarchy-refresh-applications
 if command -v omacachy-browser-default >/dev/null 2>&1; then
   omacachy-browser-default
@@ -436,8 +444,16 @@ from pathlib import Path
 p = Path('/usr/bin/omarchy-provision-user')
 s = p.read_text()
 old = """omarchy-refresh-applications
-env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser chromium.desktop
-xdg-mime default HEY.desktop x-scheme-handler/mailto"""
+if command -v omacachy-browser-default >/dev/null 2>&1; then
+  omacachy-browser-default
+else
+  browser_desktop=""
+  for b in chromium.desktop firefox.desktop brave-browser.desktop zen-browser.desktop helium-browser.desktop; do
+    [[ -f /usr/share/applications/$b ]] && browser_desktop=$b && break
+  done
+  [[ -n $browser_desktop ]] && env -u BROWSER XDG_CURRENT_DESKTOP= xdg-settings set default-web-browser "$browser_desktop" || true
+fi
+xdg-mime default HEY.desktop x-scheme-handler/mailto || true"""
 new = """omarchy-refresh-applications
 if command -v omacachy-browser-default >/dev/null 2>&1; then
   omacachy-browser-default

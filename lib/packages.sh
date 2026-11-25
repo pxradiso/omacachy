@@ -19,7 +19,7 @@ OMACACHY_BROWSER="${OMACACHY_BROWSER:-chromium}"
 
 # Core browsers shown in installer choices; other installed desktops are kept as
 # possible defaults.
-OMACACHY_BROWSER_CHOICES=(chromium firefox brave-bin zen-browser helium-browser)
+OMACACHY_BROWSER_CHOICES=(none chromium firefox brave-bin zen-browser helium-browser)
 
 # Omarchy's preinstalled *applications*, as opposed to the desktop shell and
 # its system dependencies. `--no-apps` skips exactly these (and nothing else),
@@ -172,10 +172,11 @@ load_skip_policy() {
   SKIP_REASON[omarchy-power-profiles-daemon]="CachyOS (chwd) owns the power-profiles daemon"
 
   if (( NO_APPS )); then
-    local selected_browser=${OMACACHY_BROWSER:-chromium}
+    local selected_browser
+    selected_browser=$(resolve_omacachy_browser)
     for p in "${OMARCHY_APP_PACKAGES[@]}"; do
       # Respect an explicit browser choice even in --no-apps mode.
-      if [[ $p == "$selected_browser" ]]; then
+      if [[ -n $selected_browser && $selected_browser != none && $p == "$selected_browser" ]]; then
         continue
       fi
       SKIP_REASON[$p]="--no-apps"
@@ -211,6 +212,10 @@ browser_desktop_for_package() {
 resolve_omacachy_browser() {
   local choice=${OMACACHY_BROWSER:-chromium}
   [[ $choice == auto ]] && choice=chromium
+  case $choice in
+    none|chromium|firefox|brave-bin|zen-browser|helium-browser) ;;
+    *) choice=chromium ;;
+  esac
   printf '%s\n' "$choice"
 }
 
@@ -234,7 +239,7 @@ build_package_set() {
   done < <(read_omarchy_packages)
 
   # Ensure selected browser is present.
-  if [[ -n $selected_browser ]]; then
+  if [[ -n $selected_browser && $selected_browser != none ]]; then
     case " ${PACKAGES[*]} " in
       *" $selected_browser "*) ;;
       *) PACKAGES+=("$selected_browser") ;;
