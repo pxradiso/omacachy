@@ -37,18 +37,34 @@ TUI_CLEAR=$'\033[2J\033[H'
 TUI_RESET=$'\033[0m'
 TUI_BOLD=$'\033[1m'
 TUI_DIM=$'\033[2m'
-TUI_RED=$'\033[38;2;247;118;142m'
-TUI_GREEN=$'\033[38;2;158;206;106m'
-TUI_CYAN=$'\033[38;2;125;207;255m'
+
+tui_truecolor() {
+  [[ ${COLORTERM:-} == *truecolor* || ${COLORTERM:-} == *24bit* ]] && return 0
+  [[ ${TERM:-} == *direct* || ${TERM:-} == *truecolor* || ${TERM:-} == *24bit* ]] && return 0
+  return 1
+}
+
+if tui_truecolor; then
+  TUI_RED=$'\033[38;2;247;118;142m'
+  TUI_GREEN=$'\033[38;2;158;206;106m'
+  TUI_CYAN=$'\033[38;2;125;207;255m'
+  GUM_GREEN='#9ece6a'
+  GUM_CYAN='#7dcfff'
+  GUM_TEXT='#c0caf5'
+else
+  TUI_RED=$'\033[31m'
+  TUI_GREEN=$'\033[32m'
+  TUI_CYAN=$'\033[36m'
+  GUM_GREEN='2'
+  GUM_CYAN='6'
+  GUM_TEXT='7'
+fi
 TUI_ACCENT=$TUI_GREEN
 TUI_TAGLINE='Omarchy on CachyOS'
 
 # gum colours: Omarchy green for "OMA", cyan for "CACHY" and prompts, a dark
 # foreground on green so the selected choice stays readable.
-GUM_GREEN='#9ece6a'
-GUM_CYAN='#7dcfff'
 GUM_DARK='#1a1b26'
-GUM_TEXT='#c0caf5'
 
 # Split between "OMA" and "CACHY" in the big wordmark (character columns).
 TUI_LOGO_SPLIT=28
