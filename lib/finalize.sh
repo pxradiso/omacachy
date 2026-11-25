@@ -821,4 +821,31 @@ EOF
   echo "   $OMACACHY_LOG_DIR/omarchy-system.log"
   echo "   $OMACACHY_LOG_DIR/omarchy-user.log"
   echo
+
+  if (( DRY_RUN )); then
+    return 0
+  fi
+  prompt_reboot_after_install
+}
+
+prompt_reboot_after_install() {
+  (( ASSUME_YES )) && return 0
+  [[ -t 0 && -t 1 ]] || return 0
+
+  local answer
+  printf '\n'
+  read -r -p "Do you want to reboot your system? (y/N) " answer || return 0
+  case ${answer:-N} in
+    y|Y|yes|YES)
+      info "Rebooting system..."
+      if (( DRY_RUN )); then
+        info "would reboot now"
+      else
+        systemctl reboot || reboot || warn "Could not reboot automatically; please reboot manually."
+      fi
+      ;;
+    *)
+      info "Reboot skipped. Reboot when ready."
+      ;;
+  esac
 }

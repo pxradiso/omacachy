@@ -19,8 +19,15 @@ build_overlay() {
     return 0
   fi
 
-  rm -rf "$OMACACHY_OVERLAY_DIR"
+  # Safety: only operate on the expected absolute state path.
+  [[ -n ${OMACACHY_OVERLAY_DIR:-} && $OMACACHY_OVERLAY_DIR == /* ]] || die "Invalid overlay dir: $OMACACHY_OVERLAY_DIR"
+  case "$OMACACHY_OVERLAY_DIR" in
+    "$OMACACHY_STATE_DIR"/overlay) ;;
+    *) die "Refusing to clear unexpected overlay dir: $OMACACHY_OVERLAY_DIR" ;;
+  esac
+
   mkdir -p "$OMACACHY_OVERLAY_DIR"
+  find "$OMACACHY_OVERLAY_DIR" -mindepth 1 -xdev -exec rm -rf -- {} +
   cp -a /usr/share/omarchy/install/. "$OMACACHY_OVERLAY_DIR"/
 
   local src rel
@@ -30,7 +37,6 @@ build_overlay() {
     debug "overlay: $rel"
   done < <(find "$OMACACHY_REPO/overlay" -type f -print0)
 
-  chown -R root:root "$OMACACHY_OVERLAY_DIR"
   success "Overlay ready: $OMACACHY_OVERLAY_DIR"
 }
 

@@ -60,14 +60,31 @@ uninstall_parse_args() {
   done
 }
 
+safe_uninstall_path() {
+  local f=$1
+  [[ -n $f && $f == /* ]] || return 1
+  case "$f" in
+    /|/bin|/boot|/dev|/etc|/home|/lib|/lib64|/opt|/proc|/root|/run|/sbin|/srv|/sys|/tmp|/usr|/var) return 1 ;;
+    /etc/*|/usr/*|/var/lib/omacachy/*|/var/log/omacachy/*|"$TARGET_HOME"/*|"$TARGET_HOME") return 0 ;;
+  esac
+  # Allow explicit known top-level state dirs.
+  [[ $f == "$OMACACHY_STATE_DIR" || $f == "$OMACACHY_LOG_DIR" ]] && return 0
+  return 1
+}
+
 rm_if_exists() {
   local f
   for f in "$@"; do
+    [[ -n $f ]] || continue
+    if ! safe_uninstall_path "$f"; then
+      warn "Refusing to remove unsafe path: $f"
+      continue
+    fi
     if [[ -e $f || -L $f ]]; then
       if (( DRY_RUN )); then
         info "would remove $f"
       else
-        rm -rf -- "$f"
+        rm -r -- "$f"
         info "removed $f"
       fi
     fi
