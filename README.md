@@ -151,7 +151,7 @@ and optional bloat packages are skipped (office/media apps, Docker,
 1Password, editors/terminal extras like nano/vim/alacritty, Omarchy app bundle,
 web app launchers, imv, etc.). The shell, Hyprland/SDDM session, terminal basics,
 fonts, audio, networking, input methods and Omarchy's CLI are always installed.
-The selected browser is still installed.
+The selected browser is still installed. Alacritty is skipped; if it is already installed and another terminal is available, OmaCachy removes it with unused dependencies.
 
 ## What it changes
 

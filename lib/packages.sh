@@ -29,7 +29,6 @@ OMARCHY_APP_PACKAGES=(
   1password-beta
   1password-cli
   aether
-  alacritty
   chromium
   cliamp
   discord
@@ -170,6 +169,9 @@ load_skip_policy() {
 
   # CachyOS (chwd) owns the power-profiles daemon; Omarchy's copy conflicts
   SKIP_REASON[omarchy-power-profiles-daemon]="CachyOS (chwd) owns the power-profiles daemon"
+
+  # OmaCachy: avoid Alacritty; keep existing terminal (foot/ghostty/kitty/etc.).
+  SKIP_REASON[alacritty]="not needed on OmaCachy (use installed terminal)"
 
   if (( NO_APPS )); then
     local selected_browser
@@ -507,4 +509,39 @@ verify_omarchy_version() {
   fi
   success "Omarchy $version installed (stable channel)"
   write_state OMACACHY_OMARCHY_VERSION "$version"
+}
+
+
+remove_unneeded_alacritty() {
+  pkg_installed alacritty || return 0
+
+  # Only remove if another terminal is present; avoid breaking users with no terminal.
+  local -a alternatives=(ghostty kitty foot wezterm alacritty-graphics)
+  local alt found=0
+  for alt in "${alternatives[@]}"; do
+    if command -v "$alt" >/dev/null 2>&1 || pkg_installed "$alt"; then
+      found=1
+      break
+    fi
+  done
+  if (( !found )) && [[ -n ${TERM_PROGRAM:-} ]]; then
+    found=1
+  fi
+  if (( !found )); then
+    warn "alacritty is installed but no alternative terminal was detected; leaving it in place"
+    return 0
+  fi
+
+  step "packages: remove alacritty (not needed)"
+  if (( DRY_RUN )); then
+    info "would remove alacritty and unused dependencies if safe"
+    return 0
+  fi
+
+  # Remove alacritty; -Rs removes deps no longer required. Do not force.
+  if pacman -Rns --noconfirm alacritty >/dev/null 2>&1; then
+    success "Removed alacritty"
+  else
+    warn "Could not remove alacritty automatically; you can try: sudo pacman -Rns alacritty"
+  fi
 }

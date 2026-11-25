@@ -328,6 +328,7 @@ install_main() {
     setup_omarchy_fish
     provision_user
     prune_optional_omarchy_apps
+    remove_unneeded_alacritty
   fi
 
   finalize_install
