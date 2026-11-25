@@ -54,6 +54,7 @@ Commands:
   version     print the OmaCachy version
   credits     show project credits
   help        this help
+  ------------------------------------------------------------
 
 Run 'omacachy install --help' for the install options.
 EOF
