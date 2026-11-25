@@ -84,14 +84,15 @@ omacachy_update_hint() {
 }
 
 update_main() {
-  local repo branch before after dry=0 do_fix=1
+  local repo branch before after dry=0 do_fix=1 assume_yes=0
   while (($#)); do
     case $1 in
       -n|--dry-run) dry=1; DRY_RUN=1; shift ;;
       --no-fix) do_fix=0; shift ;;
+      -y|--yes) assume_yes=1; shift ;;
       -h|--help)
         cat <<'EOF'
-Usage: omacachy update [--dry-run] [--no-fix]
+Usage: omacachy update [--dry-run] [--no-fix] [--yes]
 
 Checks GitHub for a newer OmaCachy checkout and fast-forward updates this repo only.
 After a successful update, applies known OmaCachy fixes/guards (requires sudo).
@@ -125,6 +126,24 @@ EOF
   if [[ $before == "$after" ]]; then
     success "OmaCachy is already up to date ($before)"
   else
+    local before_ver=$OMACACHY_VERSION
+    local after_ver
+    after_ver=$(omacachy_git show "origin/$branch:lib/common.sh" 2>/dev/null | sed -n 's/^OMACACHY_VERSION="\([^"]*\)".*/\1/p' | head -1)
+    [[ -n $after_ver ]] || after_ver=unknown
+    local bump_label="Update"
+    if [[ $before_ver != "$after_ver" && $before_ver != unknown && $after_ver != unknown ]]; then
+      local bmaj bmin _bpat amaj amin _apat
+      IFS=. read -r bmaj bmin _bpat <<<"${before_ver#v}"
+      IFS=. read -r amaj amin _apat <<<"${after_ver#v}"
+      if [[ ${amaj:-0} != "${bmaj:-0}" ]]; then
+        bump_label="Major update"
+      elif [[ ${amin:-0} != "${bmin:-0}" ]]; then
+        bump_label="Minor update"
+      else
+        bump_label="Patch update"
+      fi
+    fi
+    info "$bump_label: $before_ver --> $after_ver"
     info "Update available: $before -> $after"
     info "Commits:"
     omacachy_git --no-pager log --pretty=format:'  - %h %s' "HEAD..origin/$branch" || true
@@ -136,6 +155,19 @@ EOF
         info "would apply known OmaCachy fixes/guards after update (requires sudo)"
       fi
       return 0
+    fi
+
+    if (( ! assume_yes )); then
+      if [[ -t 0 && -t 1 ]]; then
+        local answer
+        read -r -p "Do you want to continue? (Y/n) " answer || answer=n
+        case ${answer:-Y} in
+          y|Y|yes|YES) ;;
+          *) info "Update cancelled"; return 0 ;;
+        esac
+      else
+        die "Non-interactive omacachy update requires --yes"
+      fi
     fi
 
     if ! omacachy_git pull --ff-only origin "$branch"; then
