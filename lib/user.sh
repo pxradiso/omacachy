@@ -220,7 +220,7 @@ prune_optional_omarchy_apps() {
     rm -f "$apps_dir/$f"
   done
 
-  # Remove Omarchy-shipped webapps; keep user-created webapps where possible.
+  # Remove Omarchy-shipped/default webapps in --no-apps mode.
   for src in /usr/share/omarchy/applications/*.desktop; do
     [[ -f $src ]] || continue
     if grep -qE 'Exec=.*(omarchy-launch-webapp|omarchy-webapp-handler)' "$src" 2>/dev/null; then
@@ -228,13 +228,10 @@ prune_optional_omarchy_apps() {
     fi
   done
 
-  # Also remove webapp entries in user dir that exactly match Omarchy defaults.
+  # Remove any remaining Omarchy webapp launchers from the user's app dir.
   while IFS= read -r -d '' df; do
     if grep -qE 'Exec=.*(omarchy-launch-webapp|omarchy-webapp-handler)' "$df" 2>/dev/null; then
-      src="/usr/share/omarchy/applications/$(basename "$df")"
-      if [[ -f $src ]]; then
-        rm -f "$df"
-      fi
+      rm -f "$df"
     fi
   done < <(find "$apps_dir" -maxdepth 1 -name '*.desktop' -print0 2>/dev/null)
 
