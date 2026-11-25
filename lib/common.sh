@@ -5,7 +5,7 @@
 if [[ -n ${_OMACACHY_COMMON:-} ]]; then return 0; fi
 _OMACACHY_COMMON=1
 
-OMACACHY_VERSION="0.2.0"
+OMACACHY_VERSION="0.2.1"
 
 # omacachy tracks Omarchy's *stable* channel only: the signed packages
 # published below. It never follows edge/rc and never clones DHH's dotfiles
