@@ -19,7 +19,8 @@ OMACACHY_BROWSER="${OMACACHY_BROWSER:-chromium}"
 
 # Core browsers shown in installer choices; other installed desktops are kept as
 # possible defaults.
-OMACACHY_BROWSER_CHOICES=(none chromium firefox brave-bin zen-browser helium-browser)
+# Zen's Arch package is zen-browser-bin (repo name may differ from TUI label).
+OMACACHY_BROWSER_CHOICES=(none chromium firefox brave-bin zen-browser-bin helium-browser)
 
 # Omarchy's preinstalled *applications*, as opposed to the desktop shell and
 # its system dependencies. `--no-apps` skips exactly these (and nothing else),
@@ -75,7 +76,7 @@ OMARCHY_APP_PACKAGES=(
   xournalpp
 )
 
-OMACACHY_BROWSER_PACKAGES=(chromium firefox brave-bin zen-browser helium-browser)
+OMACACHY_BROWSER_PACKAGES=(chromium firefox brave-bin zen-browser-bin helium-browser)
 
 declare -A SKIP_REASON=()
 SKIPPED=()
@@ -205,7 +206,7 @@ browser_desktop_for_package() {
     chromium) echo chromium.desktop ;;
     firefox) echo firefox.desktop ;;
     brave-bin | brave) echo brave-browser.desktop ;;
-    zen-browser) echo zen-browser.desktop ;;
+    zen-browser|zen-browser-bin) echo zen.desktop ;;
     helium-browser) echo helium-browser.desktop ;;
     *) echo '' ;;
   esac
@@ -215,7 +216,7 @@ resolve_omacachy_browser() {
   local choice=${OMACACHY_BROWSER:-chromium}
   [[ $choice == auto ]] && choice=chromium
   case $choice in
-    none|chromium|firefox|brave-bin|zen-browser|helium-browser) ;;
+    none|chromium|firefox|brave-bin|zen-browser|zen-browser-bin|helium-browser) ;;
     *) choice=chromium ;;
   esac
   printf '%s\n' "$choice"

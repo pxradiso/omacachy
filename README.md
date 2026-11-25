@@ -128,7 +128,7 @@ This uses CachyOS's mirror ranking tool to pick faster mirrors for your system.
   --with-nvidia      install Omarchy's NVIDIA packages instead of leaving the
                      GPU stack to CachyOS/chwd
   --browser NAME     browser to install/use (chromium, firefox, brave-bin,
-                     zen-browser, helium-browser, none)
+                     zen-browser-bin, helium-browser, none)
   --shell NAME       user shell: fish or bash (default: fish)
   --backup-fish      when --shell bash, back up ~/.config/fish first
   --no-apps          desktop only: skip Omarchy's preinstalled apps and optional bloat

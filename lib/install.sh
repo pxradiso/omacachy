@@ -173,7 +173,7 @@ Options:
       --with-nvidia      install Omarchy's NVIDIA packages instead of leaving
                          the GPU stack to CachyOS/chwd
       --browser NAME     browser to install/use (chromium, firefox, brave-bin,
-                         zen-browser, helium-browser)
+                         zen-browser-bin, helium-browser, none)
       --setup-fish       install omarchy-fish and run omarchy-setup-fish for the user
       --shell NAME       user shell: fish or bash (default: fish)
       --backup-fish      when --shell bash, back up fish config before switching

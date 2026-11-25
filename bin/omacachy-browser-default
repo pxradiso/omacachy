@@ -15,13 +15,13 @@ case $choice in
   chromium) desktop=chromium.desktop ;;
   firefox) desktop=firefox.desktop ;;
   brave-bin|brave) desktop=brave-browser.desktop ;;
-  zen-browser) desktop=zen-browser.desktop ;;
+  zen-browser|zen-browser-bin) desktop=zen.desktop ;;
   helium-browser) desktop=helium-browser.desktop ;;
   *) desktop=chromium.desktop ;;
 esac
 
 if [[ ! -f "/usr/share/applications/$desktop" ]]; then
-  for b in chromium.desktop firefox.desktop brave-browser.desktop zen-browser.desktop helium-browser.desktop; do
+  for b in chromium.desktop firefox.desktop brave-browser.desktop zen.desktop zen-browser.desktop helium-browser.desktop; do
     if [[ -f "/usr/share/applications/$b" ]]; then
       desktop=$b
       break

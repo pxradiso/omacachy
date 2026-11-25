@@ -378,7 +378,7 @@ tui_run() {
         chromium) browser_selected="Chromium" ;;
         firefox) browser_selected="Firefox" ;;
         brave-bin) browser_selected="Brave" ;;
-        zen-browser) browser_selected="Zen Browser" ;;
+        zen-browser|zen-browser-bin) browser_selected="Zen Browser" ;;
         helium-browser) browser_selected="Helium Browser" ;;
       esac
       browser_choice=$(GUM_CHOOSE_PADDING="0 0 0 $TUI_PAD" \
@@ -397,7 +397,7 @@ tui_run() {
         "Chromium") browser_sel=chromium ;;
         "Firefox") browser_sel=firefox ;;
         "Brave") browser_sel=brave-bin ;;
-        "Zen Browser") browser_sel=zen-browser ;;
+        "Zen Browser") browser_sel=zen-browser-bin ;;
         "Helium Browser") browser_sel=helium-browser ;;
         "No one") browser_sel=none ;;
         *) browser_sel=chromium ;;
@@ -543,7 +543,7 @@ tui_run() {
       case "$browser_sel" in
         firefox) summary+=("Browser        Firefox") ;;
         brave-bin) summary+=("Browser        Brave") ;;
-        zen-browser) summary+=("Browser        Zen Browser") ;;
+        zen-browser|zen-browser-bin) summary+=("Browser        Zen Browser") ;;
         helium-browser) summary+=("Browser        Helium Browser") ;;
         none) summary+=("Browser        No one") ;;
         *) summary+=("Browser        Chromium") ;;
@@ -624,7 +624,7 @@ tui_run() {
     case "${OMACACHY_BROWSER:-chromium}" in
       firefox) summary_text+=("  Browser         Firefox") ;;
       brave-bin) summary_text+=("  Browser         Brave") ;;
-      zen-browser) summary_text+=("  Browser         Zen Browser") ;;
+      zen-browser|zen-browser-bin) summary_text+=("  Browser         Zen Browser") ;;
       helium-browser) summary_text+=("  Browser         Helium Browser") ;;
       none) summary_text+=("  Browser         No one") ;;
       *) summary_text+=("  Browser         Chromium") ;;
