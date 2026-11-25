@@ -226,6 +226,29 @@ EOF
   fi
 
   echo
+  echo "Known Omarchy drift:"
+  local tb_pkg=omarchy-hyprland-titlebars
+  if pkg_installed "$tb_pkg"; then
+    doc_ok "$tb_pkg installed"
+    if command -v hyprctl >/dev/null 2>&1 && hyprctl plugin list 2>/dev/null | grep -q 'titlebars'; then
+      doc_ok "Hyprland titlebars plugin loaded"
+    else
+      doc_warn "$tb_pkg installed but titlebars plugin not loaded (try: hyprctl plugin load /usr/lib/omarchy-hyprland-titlebars/titlebars.so)"
+    fi
+  else
+    local hl_ver dep_needed
+    hl_ver=$(pkg_version hyprland 2>/dev/null || true)
+    dep_needed=$(pacman -Si "$tb_pkg" 2>/dev/null | awk -F: '/^Depends On/{print $2}' | tr ' ' '\n' | sed -n 's/^hyprland=//p' | head -1)
+    if [[ -n $hl_ver && -n $dep_needed && $hl_ver != "$dep_needed" ]]; then
+      doc_warn "$tb_pkg missing: needs hyprland=$dep_needed, installed hyprland=$hl_ver (Omarchy repo drift). Floating windows may lack decorations."
+      printf '        Workaround (risk: possible Hyprland ABI mismatch): sudo pacman -Sdd %s && hyprctl plugin load /usr/lib/omarchy-hyprland-titlebars/titlebars.so\n' "$tb_pkg"
+      printf '        Preferred: wait for Omarchy rebuild, then run: sudo omacachy install\n'
+    else
+      doc_warn "$tb_pkg not installed; floating windows may lack decorations/titlebars"
+    fi
+  fi
+
+  echo
   if ((DOC_FAILS)); then
     printf '%s%d failure(s), %d warning(s)%s\n\n' "$C_RED" "$DOC_FAILS" "$DOC_WARNS" "$C_RESET"
     return 1

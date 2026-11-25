@@ -16,6 +16,30 @@ OMACACHY_FASTFETCH_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-fastfetch.hook
 OMACACHY_OPENCODE_RESTART_PATCH=/usr/local/lib/omacachy/patch-omarchy-opencode-restart
 OMACACHY_OPENCODE_RESTART_HOOK=/etc/pacman.d/hooks/omacachy-omarchy-opencode-restart.hook
 
+warn_omarchy_titlebar_drift() {
+  local pkg=omarchy-hyprland-titlebars
+  local so=/usr/lib/omarchy-hyprland-titlebars/titlebars.so
+
+  if pkg_installed "$pkg"; then
+    if [[ -f $so ]] && command -v hyprctl >/dev/null 2>&1; then
+      if ! hyprctl plugin list 2>/dev/null | grep -q 'titlebars'; then
+        warn "$pkg installed but not loaded. Try: hyprctl plugin load $so"
+      fi
+    fi
+    return 0
+  fi
+
+  local hl_ver dep_needed
+  hl_ver=$(pkg_version hyprland 2>/dev/null || true)
+  dep_needed=$(pacman -Si "$pkg" 2>/dev/null | awk -F: '/^Depends On/{print $2}' | tr ' ' '\n' | sed -n 's/^hyprland=//p' | head -1)
+  if [[ -n $hl_ver && -n $dep_needed && $hl_ver != "$dep_needed" ]]; then
+    warn "$pkg missing due to Omarchy repo drift: needs hyprland=$dep_needed, installed hyprland=$hl_ver"
+    warn "Floating windows may lack decorations/titlebars until Omarchy rebuilds the package."
+    warn "Preferred: wait for rebuild, then run: sudo omacachy install"
+    warn "Manual workaround (risk: possible Hyprland ABI mismatch): sudo pacman -Sdd $pkg && hyprctl plugin load $so"
+  fi
+}
+
 install_omacachy_command() {
   local bin=/usr/local/bin/omacachy
   local target="$OMACACHY_REPO/bin/omacachy"
@@ -663,6 +687,7 @@ apply_omacachy_fixes() {
     patch_omarchy_limine_name || true
     install_omarchy_limine_name_guard || true
     install_omacachy_command || true
+    warn_omarchy_titlebar_drift || true
   else
     info "Skipping system patch/guard application (requires root)"
   fi
