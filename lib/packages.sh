@@ -100,7 +100,11 @@ load_skip_policy() {
   IS_ASUS=${IS_ASUS:-0}
   IS_APPLE_T2=${IS_APPLE_T2:-0}
   IS_DELL_XPS=${IS_DELL_XPS:-0}
+  IS_FRAMEWORK=${IS_FRAMEWORK:-0}
+  IS_MACBOOK_SPI=${IS_MACBOOK_SPI:-0}
   HAS_NVIDIA_GPU=${HAS_NVIDIA_GPU:-0}
+  HAS_AMD_GPU=${HAS_AMD_GPU:-0}
+  HAS_INTEL_CPU=${HAS_INTEL_CPU:-0}
 
   # omacachy is CachyOS-first: the CachyOS kernel, its prebuilt NVIDIA modules
   # and chwd own the boot/kernel/driver layer. Omarchy's copies are not used.
@@ -140,10 +144,19 @@ load_skip_policy() {
       SKIP_REASON[$p]="Dell XPS hardware not detected"
     done
   fi
-  if [[ $(uname -m) != x86_64 ]] || ! grep -qi intel /proc/cpuinfo 2>/dev/null; then
+  if (( ! IS_FRAMEWORK )); then
+    SKIP_REASON[qmk-hid]="Framework hardware not detected"
+  fi
+  if (( ! IS_MACBOOK_SPI )); then
+    SKIP_REASON[macbook12-spi-driver-dkms]="MacBook SPI hardware not detected"
+  fi
+  if (( ! HAS_INTEL_CPU )); then
     for p in intel-ipu7-camera intel-lpmd intel-media-driver libva-intel-driver vpl-gpu-rt vulkan-intel; do
-      SKIP_REASON[$p]="Intel hardware not detected"
+      SKIP_REASON[$p]="Intel CPU/GPU not detected"
     done
+  fi
+  if (( ! HAS_AMD_GPU )); then
+    SKIP_REASON[vulkan-radeon]="AMD GPU not detected"
   fi
   if ! lspci -nn 2>/dev/null | grep -qi broadcom; then
     SKIP_REASON[broadcom-wl-dkms]="Broadcom Wi-Fi not detected"

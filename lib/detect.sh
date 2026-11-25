@@ -137,6 +137,10 @@ detect_hardware() {
   IS_APPLE_T2=0
   IS_DELL_XPS=0
   HAS_NVIDIA_GPU=0
+  HAS_AMD_GPU=0
+  HAS_INTEL_CPU=0
+  IS_FRAMEWORK=0
+  IS_MACBOOK_SPI=0
 
   local vendor product
   vendor=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)
@@ -148,9 +152,8 @@ detect_hardware() {
   esac
   case "$vendor" in
     *ASUSTeK* | *ASUS*) IS_ASUS=1 ;;
-  esac
-  case "$vendor $product" in
-    *Apple*|*T2*) : ;;
+    *Framework*) IS_FRAMEWORK=1 ;;
+    *Apple*) IS_MACBOOK_SPI=1 ;;
   esac
   # Apple T2 Macs have T2 chip; detect via sys vendor/product or lspci apple/t2
   if [[ "$vendor" == *Apple* ]] || have_lspci_t2; then
@@ -161,11 +164,19 @@ detect_hardware() {
     *Dell*) [[ "$product" == *XPS* ]] && IS_DELL_XPS=1 ;;
   esac
 
-  if have lspci && lspci 2>/dev/null | grep -qi 'nvidia'; then
-    HAS_NVIDIA_GPU=1
+  if have lspci; then
+    lspci 2>/dev/null | grep -qi 'nvidia' && HAS_NVIDIA_GPU=1
+    lspci 2>/dev/null | grep -qiE 'vga|3d|display' | grep -qiE 'amd|ati|radeon' && HAS_AMD_GPU=1
+    # better AMD detection
+    if lspci 2>/dev/null | grep -qiE 'VGA compatible controller.*(AMD|ATI|Advanced Micro Devices)|Display controller.*(AMD|ATI|Advanced Micro Devices)'; then
+      HAS_AMD_GPU=1
+    fi
+  fi
+  if [[ $(uname -m) == x86_64 ]] && grep -qi intel /proc/cpuinfo 2>/dev/null; then
+    HAS_INTEL_CPU=1
   fi
 
-  debug "hardware: tuxedo=$IS_TUXEDO asus=$IS_ASUS apple_t2=$IS_APPLE_T2 dell_xps=$IS_DELL_XPS nvidia_gpu=$HAS_NVIDIA_GPU vendor=$vendor"
+  debug "hardware: tuxedo=$IS_TUXEDO asus=$IS_ASUS apple_t2=$IS_APPLE_T2 dell_xps=$IS_DELL_XPS framework=$IS_FRAMEWORK macbook_spi=$IS_MACBOOK_SPI nvidia_gpu=$HAS_NVIDIA_GPU amd_gpu=$HAS_AMD_GPU intel_cpu=$HAS_INTEL_CPU vendor=$vendor"
 }
 
 have_lspci_t2() {
