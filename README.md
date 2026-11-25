@@ -22,6 +22,11 @@ the machine is **Omarchy**: Omarchy's packages, configs, CLI and update flow.
 CachyOS keeps what makes it CachyOS: its kernel, its `chwd` driver stack, its
 `pacman.conf`, mirrors and keyrings.
 
+It can also be lighter than a stock Omarchy install: choose **No** for
+preinstalled applications to get a desktop-only setup without optional app
+bloat, and OmaCachy skips unnecessary hardware-specific drivers when the
+matching hardware is not detected.
+
 > [!CAUTION]
 > **Beta software.** OmaCachy is still in beta and may contain bugs. Use it at your own risk.
 > Back up your data and system before running it. pxradiso is not responsible for any damage,
