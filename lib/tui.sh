@@ -438,47 +438,51 @@ tui_run() {
     fi
 
     # 5. Limine.
-    local limine_default=yes
-    [[ $BOOT_MODE == skip ]] && limine_default=no
-    while :; do
-      local -a limine_desc=(
-        "Limine is Omarchy's bootloader (UKIs + snapshot rollback)."
-        "Omarchy's packages hard-depend on limine, limine-mkinitcpio-hook,"
-        "limine-snapper-sync and snapper."
-      )
-      (( LIMINE_DEPLOYED )) && limine_desc+=("Limine already appears to be deployed on this machine.")
-      if tui_yes_no "Do you want to install Limine? (Omarchy requires it)" \
-        "$limine_default" "${limine_desc[@]}"; then
-        limine_sel=1
-        local entry_default=no
-        (( entry_sel == 0 )) && entry_default=yes
-        if tui_yes_no "Make Limine the default boot entry?" "$entry_default" \
-          "Register adds Limine to the firmware menu and leaves your current" \
-          "default boot entry untouched." \
-          "" \
-          "Convert makes Limine the default right now."; then
-          entry_sel=0
-          BOOT_MODE=convert
-        else
-          entry_sel=1
-          BOOT_MODE=register
-        fi
-        break
-      fi
-
+    if (( LIMINE_DEPLOYED )); then
       limine_sel=0
-      if (( LIMINE_DEPLOYED )) || [[ $BOOT_MODE_SET == 1 && $BOOT_MODE == skip ]]; then
-        BOOT_MODE=skip
-        break
-      fi
+      BOOT_MODE=skip
+    else
+      local limine_default=yes
+      [[ $BOOT_MODE == skip ]] && limine_default=no
+      while :; do
+        local -a limine_desc=(
+          "Limine is Omarchy's bootloader (UKIs + snapshot rollback)."
+          "Omarchy's packages hard-depend on limine, limine-mkinitcpio-hook,"
+          "limine-snapper-sync and snapper."
+        )
+        if tui_yes_no "Do you want to install Limine? (Omarchy requires it)" \
+          "$limine_default" "${limine_desc[@]}"; then
+          limine_sel=1
+          local entry_default=no
+          (( entry_sel == 0 )) && entry_default=yes
+          if tui_yes_no "Make Limine the default boot entry?" "$entry_default" \
+            "Register adds Limine to the firmware menu and leaves your current" \
+            "default boot entry untouched." \
+            "" \
+            "Convert makes Limine the default right now."; then
+            entry_sel=0
+            BOOT_MODE=convert
+          else
+            entry_sel=1
+            BOOT_MODE=register
+          fi
+          break
+        fi
 
-      tui_message "Limine is required" \
-        "Omarchy's packages hard-depend on limine, limine-mkinitcpio-hook," \
-        "limine-snapper-sync and snapper. Without Limine there is no" \
-        "Omarchy install." \
-        "" \
-        "Press Enter to go back, or Ctrl+C to abort."
-    done
+        limine_sel=0
+        if [[ $BOOT_MODE_SET == 1 && $BOOT_MODE == skip ]]; then
+          BOOT_MODE=skip
+          break
+        fi
+
+        tui_message "Limine is required" \
+          "Omarchy's packages hard-depend on limine, limine-mkinitcpio-hook," \
+          "limine-snapper-sync and snapper. Without Limine there is no" \
+          "Omarchy install." \
+          "" \
+          "Press Enter to go back, or Ctrl+C to abort."
+      done
+    fi
 
     # 5. The login greeter.
     local greeter_default=yes

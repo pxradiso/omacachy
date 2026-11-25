@@ -107,7 +107,16 @@ After the reboot, log in through SDDM with your password and pick the
 **Omarchy** / Hyprland session (on `--boot=register`, choose *Limine* in the
 firmware boot menu first).
 
-The installer can be re-run at any time: every phase is idempotent.
+The installer can be interrupted and resumed at any time: every phase is
+idempotent, so you can safely rerun `./install.sh` to continue.
+
+If downloads or mirrors feel slow, refresh CachyOS mirrors before retrying:
+
+```bash
+sudo cachyos-rate-mirrors
+```
+
+This uses CachyOS's mirror ranking tool to pick faster mirrors for your system.
 
 ## Options
 
