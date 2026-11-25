@@ -233,7 +233,7 @@ format_cachyos_os_release() {
   fi
   sed -i \
     -e 's|^NAME=.*\$|NAME="CachyOS Linux"|' \
-    -e "s|^PRETTY_NAME=.*\$|PRETTY_NAME=\\"${pretty}\\"|" \
+    -e "s|^PRETTY_NAME=.*\$|PRETTY_NAME=\\"\${pretty}\\"|" \
     "\$file"
 }
 
