@@ -133,6 +133,9 @@ detect_conflicting_desktops() {
 
 detect_hardware() {
   IS_TUXEDO=0
+  IS_ASUS=0
+  IS_APPLE_T2=0
+  IS_DELL_XPS=0
   HAS_NVIDIA_GPU=0
 
   local vendor product
@@ -143,32 +146,31 @@ detect_hardware() {
       IS_TUXEDO=1
       ;;
   esac
+  case "$vendor" in
+    *ASUSTeK* | *ASUS*) IS_ASUS=1 ;;
+  esac
+  case "$vendor $product" in
+    *Apple*|*T2*) : ;;
+  esac
+  # Apple T2 Macs have T2 chip; detect via sys vendor/product or lspci apple/t2
+  if [[ "$vendor" == *Apple* ]] || have_lspci_t2; then
+    IS_APPLE_T2=1
+  fi
+  case "$vendor $product" in
+    *Dell*XPS*|*Dell*Latitude*XPS*) IS_DELL_XPS=1 ;;
+    *Dell*) [[ "$product" == *XPS* ]] && IS_DELL_XPS=1 ;;
+  esac
 
   if have lspci && lspci 2>/dev/null | grep -qi 'nvidia'; then
     HAS_NVIDIA_GPU=1
   fi
 
-  debug "hardware: tuxedo=$IS_TUXEDO nvidia_gpu=$HAS_NVIDIA_GPU vendor=$vendor"
+  debug "hardware: tuxedo=$IS_TUXEDO asus=$IS_ASUS apple_t2=$IS_APPLE_T2 dell_xps=$IS_DELL_XPS nvidia_gpu=$HAS_NVIDIA_GPU vendor=$vendor"
 }
 
-detect_hardware() {
-  IS_TUXEDO=0
-  HAS_NVIDIA_GPU=0
-
-  local vendor product
-  vendor=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)
-  product=$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)
-  case "$vendor $product" in
-    *TUXEDO* | *Schenker* | *XMG* | *Mechrevo* | *Tongfang* | *Uniwill*)
-      IS_TUXEDO=1
-      ;;
-  esac
-
-  if have lspci && lspci 2>/dev/null | grep -qi 'nvidia'; then
-    HAS_NVIDIA_GPU=1
-  fi
-
-  debug "hardware: tuxedo=$IS_TUXEDO nvidia_gpu=$HAS_NVIDIA_GPU vendor=$vendor"
+have_lspci_t2() {
+  have lspci || return 1
+  lspci -nn 2>/dev/null | grep -qiE 'apple|t2|106b:180[12]'
 }
 
 free_kib() { df -Pk "$1" 2>/dev/null | awk 'NR==2 {print $4}'; }
