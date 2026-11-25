@@ -32,6 +32,8 @@ source "$ROOT/lib/user.sh"
 source "$ROOT/lib/finalize.sh"
 # shellcheck source=../lib/doctor.sh
 source "$ROOT/lib/doctor.sh"
+# shellcheck source=../lib/uninstall.sh
+source "$ROOT/lib/uninstall.sh"
 # shellcheck source=../lib/install.sh
 source "$ROOT/lib/install.sh"
 
@@ -43,7 +45,8 @@ Usage: omacachy <command> [options]
 
 Commands:
   install     install/refresh Omarchy on this CachyOS system
-  update      update through Omarchy's own updater (omarchy update)
+  update      update OmaCachy from GitHub (does not update the system)
+  uninstall   remove OmaCachy hooks/guards and optionally Omarchy packages
   doctor      read-only health checks
   status      show what is installed
   version     print the OmaCachy version
@@ -57,15 +60,82 @@ require_omarchy() {
   pkg_installed omarchy || die "Omarchy is not installed. Run: sudo omacachy install"
 }
 
-update_main() {
-  require_omarchy
-  if (( EUID == 0 )); then
-    if [[ -n ${SUDO_USER:-} && ${SUDO_USER:-} != root ]]; then
-      exec runuser -u "$SUDO_USER" -- omarchy update "$@"
-    fi
-    die "Run 'omarchy update' as your desktop user, not as root"
+omacachy_repo_dir() {
+  printf '%s\n' "$OMACACHY_REPO"
+}
+
+omacachy_git() {
+  git -C "$(omacachy_repo_dir)" "$@"
+}
+
+omacachy_update_hint() {
+  local repo branch local_ref remote_ref
+  repo=$(omacachy_repo_dir)
+  [[ -d $repo/.git ]] || return 0
+  have git || return 0
+  branch=$(omacachy_git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##' || true)
+  [[ -n $branch ]] || branch=main
+  local_ref=$(omacachy_git rev-parse --verify HEAD 2>/dev/null || true)
+  remote_ref=$(omacachy_git ls-remote --heads origin "$branch" 2>/dev/null | awk '{print $1}' | head -1 || true)
+  [[ -n $local_ref && -n $remote_ref ]] || return 0
+  if [[ $local_ref != "$remote_ref" ]]; then
+    warn "A newer OmaCachy version is available on GitHub. Run: omacachy update"
   fi
-  exec omarchy update "$@"
+}
+
+update_main() {
+  local repo branch before after dry=0
+  while (($#)); do
+    case $1 in
+      -n|--dry-run) dry=1; DRY_RUN=1; shift ;;
+      -h|--help)
+        cat <<'EOF'
+Usage: omacachy update [--dry-run]
+
+Checks GitHub for a newer OmaCachy checkout and fast-forward updates this repo only.
+It does not update system packages or Omarchy. Use 'omarchy update' for that.
+EOF
+        return 0
+        ;;
+      *) die "Unknown update option: $1" ;;
+    esac
+  done
+
+  repo=$(omacachy_repo_dir)
+  [[ -d $repo/.git ]] || die "OmaCachy repo not found at $repo"
+
+  if (( EUID == 0 )); then
+    die "Run 'omacachy update' as your normal user (it updates the OmaCachy checkout only)"
+  fi
+
+  have git || die "git is required to update OmaCachy"
+  branch=$(omacachy_git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^origin/##' || true)
+  [[ -n $branch ]] || branch=main
+
+  step "OmaCachy: check GitHub for updates"
+  info "Repository: $repo (branch: $branch)"
+  omacachy_git fetch --quiet origin "$branch" || die "Failed to fetch updates from GitHub"
+
+  before=$(omacachy_git rev-parse --short HEAD 2>/dev/null || echo unknown)
+  after=$(omacachy_git rev-parse --short "origin/$branch" 2>/dev/null || echo unknown)
+
+  if [[ $before == "$after" ]]; then
+    success "OmaCachy is already up to date ($before)"
+    return 0
+  fi
+
+  info "Update available: $before -> $after"
+  if (( dry || DRY_RUN )); then
+    info "would run: git -C $repo pull --ff-only origin $branch"
+    return 0
+  fi
+
+  if ! omacachy_git pull --ff-only origin "$branch"; then
+    die "Could not fast-forward OmaCachy. Resolve local changes in $repo and retry"
+  fi
+
+  success "OmaCachy updated: $before -> $(omacachy_git rev-parse --short HEAD)"
+  info "This command updates only OmaCachy. To update system/Omarchy packages, use: omarchy update"
 }
 
 status_main() {
@@ -99,10 +169,11 @@ command=${1:-help}
 shift || true
 
 case $command in
-  install) install_main "$@" ;;
+  install) omacachy_update_hint || true; install_main "$@" ;;
   update) update_main "$@" ;;
-  doctor) doctor_main "$@" ;;
-  status) status_main ;;
+  uninstall) uninstall_main "$@" ;;
+  doctor) omacachy_update_hint || true; doctor_main "$@" ;;
+  status) omacachy_update_hint || true; status_main ;;
   version | --version | -V) echo "OmaCachy $OMACACHY_VERSION" ;;
   help | --help | -h) usage ;;
   *)

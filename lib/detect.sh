@@ -166,9 +166,7 @@ detect_hardware() {
 
   if have lspci; then
     lspci 2>/dev/null | grep -qi 'nvidia' && HAS_NVIDIA_GPU=1
-    lspci 2>/dev/null | grep -qiE 'vga|3d|display' | grep -qiE 'amd|ati|radeon' && HAS_AMD_GPU=1
-    # better AMD detection
-    if lspci 2>/dev/null | grep -qiE 'VGA compatible controller.*(AMD|ATI|Advanced Micro Devices)|Display controller.*(AMD|ATI|Advanced Micro Devices)'; then
+    if lspci 2>/dev/null | grep -qiE 'VGA compatible controller.*(AMD|ATI|Advanced Micro Devices)|Display controller.*(AMD|ATI|Advanced Micro Devices)|3D controller.*(AMD|ATI|Advanced Micro Devices)'; then
       HAS_AMD_GPU=1
     fi
   fi

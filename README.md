@@ -222,23 +222,29 @@ omarchy update          # snapshots, keyrings, pacman -Syu, migrations, hooks
 Direct `pacman -Syu` is blocked by Omarchy's own pacman hook (upstream
 behaviour). For a one-off exception: `sudo env OMARCHY_ALLOW_DIRECT_PACMAN=1 pacman -Syu`.
 
-OmaCachy itself is just this repo: `git pull` to get installer fixes. It does
-not add an update channel of its own.
+Update OmaCachy itself (repo/installer only, no system package update):
+
+```bash
+omacachy update
+```
+
+`omacachy update` checks GitHub and fast-forward pulls the OmaCachy checkout. It does not run `pacman`, `omarchy update`, or system upgrades.
 
 ## Health checks
 
 ```bash
 omacachy doctor          # read-only: packages, repo, key, Limine, snapper, user
 omacachy status          # installed versions and recorded state
+omacachy uninstall       # remove OmaCachy hooks/guards; optional package/repo cleanup
 ```
 
 ## Repository layout
 
 ```
 install.sh              entry point (./install.sh, interactive setup)
-bin/omacachy            CLI: install | update | doctor | status
+bin/omacachy            CLI: install | update | uninstall | doctor | status
 lib/                    detection, TUI, desktops, greeter, repo, packages,
-                        overlay, system, identity, user
+                        overlay, system, identity, user, uninstall
 overlay/                install-time replacements copied over Omarchy's tree
 docs/                   architecture, bootloader, CachyOS differences, troubleshooting,
                         uninstall

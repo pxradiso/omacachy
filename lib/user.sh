@@ -201,28 +201,17 @@ prune_optional_omarchy_apps() {
   local apps_dir="$home/.local/share/applications"
   local -a remove=(
     "Alacritty.desktop"
-    "Basecamp.desktop"
-    "Discord.desktop"
-    "Google Contacts.desktop"
-    "Google Maps.desktop"
-    "Google Messages.desktop"
-    "Google Photos.desktop"
-    "HEY.desktop"
-    "WhatsApp.desktop"
-    "X.desktop"
-    "YouTube.desktop"
-    "Zoom.desktop"
     "imv.desktop"
     "imv-dir.desktop"
     "micro.desktop"
     "org.gnome.meld.desktop"
   )
-  local f
+  local f src df
 
   step "user: prune optional Omarchy apps/webapps (--no-apps)"
 
   if (( DRY_RUN )); then
-    info "would remove optional desktop entries from $apps_dir"
+    info "would remove optional desktop entries/webapps from $apps_dir"
     return 0
   fi
 
@@ -231,8 +220,25 @@ prune_optional_omarchy_apps() {
     rm -f "$apps_dir/$f"
   done
 
+  # Remove Omarchy-shipped webapps; keep user-created webapps where possible.
+  for src in /usr/share/omarchy/applications/*.desktop; do
+    [[ -f $src ]] || continue
+    if grep -qE 'Exec=.*(omarchy-launch-webapp|omarchy-webapp-handler)' "$src" 2>/dev/null; then
+      rm -f "$apps_dir/$(basename "$src")"
+    fi
+  done
+
+  # Also remove webapp entries in user dir that exactly match Omarchy defaults.
+  while IFS= read -r -d '' df; do
+    if grep -qE 'Exec=.*(omarchy-launch-webapp|omarchy-webapp-handler)' "$df" 2>/dev/null; then
+      src="/usr/share/omarchy/applications/$(basename "$df")"
+      if [[ -f $src ]]; then
+        rm -f "$df"
+      fi
+    fi
+  done < <(find "$apps_dir" -maxdepth 1 -name '*.desktop' -print0 2>/dev/null)
+
   # Keep omasnap: needed for screenshots.
-  # Refresh desktop database if available.
   if command -v update-desktop-database >/dev/null 2>&1; then
     run_as_user "$TARGET_USER" update-desktop-database "$apps_dir" >/dev/null 2>&1 || true
   fi
