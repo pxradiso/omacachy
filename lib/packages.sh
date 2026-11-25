@@ -151,6 +151,9 @@ load_skip_policy() {
   if ! lspci -nn 2>/dev/null | grep -qi 'marvell'; then
     SKIP_REASON[linux-firmware-marvell]="Marvell hardware not detected"
   fi
+  if [[ $(uname -m) != aarch64 ]]; then
+    SKIP_REASON[vulkan-asahi]="Apple Silicon/Asahi hardware not detected"
+  fi
 
   # CachyOS (chwd) owns the power-profiles daemon; Omarchy's copy conflicts
   SKIP_REASON[omarchy-power-profiles-daemon]="CachyOS (chwd) owns the power-profiles daemon"
