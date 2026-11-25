@@ -261,7 +261,7 @@ from pathlib import Path
 p = Path('/etc/fastfetch/config.jsonc')
 s = p.read_text()
 old = '"text": "version=$(omarchy-version) && echo \\"Omarchy $version\\""'
-new = '"text": "ver=$(omarchy-version 2>/dev/null); . /etc/os-release 2>/dev/null; name=${PRETTY_NAME:-${NAME:-CachyOS Linux}}; if [ \\"${ID:-}\\" = omarchy ]; then echo \\"Omarchy ${ver}\\"; else echo \\"${name} / Omarchy ${ver}\\"; fi" # OmaCachy fastfetch OS identity'
+new = '"text": "ver=$(omarchy-version 2>/dev/null); . /etc/os-release 2>/dev/null; name=${PRETTY_NAME:-${NAME:-CachyOS Linux}}; if [ \\"${ID:-}\\" = omarchy ]; then echo \\"Omarchy ${ver}\\"; else echo \\"${name} / Omarchy ${ver}\\"; fi" // OmaCachy fastfetch OS identity'
 if old in s:
     p.write_text(s.replace(old, new))
     print('OmaCachy: patched fastfetch OS identity')
@@ -288,7 +288,7 @@ from pathlib import Path
 p = Path('/etc/fastfetch/config.jsonc')
 s = p.read_text()
 old = '"text": "version=$(omarchy-version) && echo \\"Omarchy $version\\""'
-new = '"text": "ver=$(omarchy-version 2>/dev/null); . /etc/os-release 2>/dev/null; name=${PRETTY_NAME:-${NAME:-CachyOS Linux}}; if [ \\"${ID:-}\\" = omarchy ]; then echo \\"Omarchy ${ver}\\"; else echo \\"${name} / Omarchy ${ver}\\"; fi" # OmaCachy fastfetch OS identity'
+new = '"text": "ver=$(omarchy-version 2>/dev/null); . /etc/os-release 2>/dev/null; name=${PRETTY_NAME:-${NAME:-CachyOS Linux}}; if [ \\"${ID:-}\\" = omarchy ]; then echo \\"Omarchy ${ver}\\"; else echo \\"${name} / Omarchy ${ver}\\"; fi" // OmaCachy fastfetch OS identity'
 if old in s:
     p.write_text(s.replace(old, new))
     print('OmaCachy: patched fastfetch OS identity')
