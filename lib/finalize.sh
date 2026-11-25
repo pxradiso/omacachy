@@ -35,8 +35,7 @@ warn_omarchy_titlebar_drift() {
   if [[ -n $hl_ver && -n $dep_needed && $hl_ver != "$dep_needed" ]]; then
     warn "$pkg missing due to Omarchy repo drift: needs hyprland=$dep_needed, installed hyprland=$hl_ver"
     warn "Floating windows may lack decorations/titlebars until Omarchy rebuilds the package."
-    warn "Preferred: wait for rebuild, then run: sudo omacachy install"
-    warn "Manual workaround (risk: possible Hyprland ABI mismatch): sudo pacman -Sdd $pkg && hyprctl plugin load $so"
+    warn "Wait for Omarchy rebuild, then run: sudo omacachy install"
   fi
 }
 

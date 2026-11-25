@@ -241,8 +241,7 @@ EOF
     dep_needed=$(pacman -Si "$tb_pkg" 2>/dev/null | awk -F: '/^Depends On/{print $2}' | tr ' ' '\n' | sed -n 's/^hyprland=//p' | head -1)
     if [[ -n $hl_ver && -n $dep_needed && $hl_ver != "$dep_needed" ]]; then
       doc_warn "$tb_pkg missing: needs hyprland=$dep_needed, installed hyprland=$hl_ver (Omarchy repo drift). Floating windows may lack decorations."
-      printf '        Workaround (risk: possible Hyprland ABI mismatch): sudo pacman -Sdd %s && hyprctl plugin load /usr/lib/omarchy-hyprland-titlebars/titlebars.so\n' "$tb_pkg"
-      printf '        Preferred: wait for Omarchy rebuild, then run: sudo omacachy install\n'
+      printf '        Wait for Omarchy rebuild, then run: sudo omacachy install\n'
     else
       doc_warn "$tb_pkg not installed; floating windows may lack decorations/titlebars"
     fi
