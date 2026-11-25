@@ -161,7 +161,7 @@ EOF
       return 0
     fi
 
-    if (( ! assume_yes )); then
+    if (( ! assume_yes )) && [[ $bump_label == "Major update" ]]; then
       if [[ -t 0 && -t 1 ]]; then
         local answer
         read -r -p "Do you want to continue? (Y/n) " answer || answer=n
@@ -170,7 +170,7 @@ EOF
           *) info "Update cancelled"; return 0 ;;
         esac
       else
-        die "Non-interactive omacachy update requires --yes"
+        die "Non-interactive major omacachy update requires --yes"
       fi
     fi
 
