@@ -546,3 +546,24 @@ remove_unneeded_alacritty() {
     warn "Could not remove alacritty automatically; you can try: sudo pacman -Rns alacritty"
   fi
 }
+
+remove_unselected_firefox() {
+  local selected_browser
+  selected_browser=$(resolve_omacachy_browser)
+
+  # Remove Firefox only when the user explicitly selected a different browser.
+  [[ $selected_browser != firefox ]] || return 0
+  pkg_installed firefox || return 0
+
+  step "packages: remove Firefox (not selected)"
+  if (( DRY_RUN )); then
+    info "would remove firefox and unused dependencies if safe"
+    return 0
+  fi
+
+  if pacman -Rns --noconfirm firefox >/dev/null 2>&1; then
+    success "Removed Firefox"
+  else
+    warn "Could not remove Firefox automatically; you can try: sudo pacman -Rns firefox"
+  fi
+}

@@ -329,6 +329,7 @@ install_main() {
     provision_user
     prune_optional_omarchy_apps
     remove_unneeded_alacritty
+    remove_unselected_firefox
   fi
 
   finalize_install
