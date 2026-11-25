@@ -65,12 +65,24 @@ write_mkinitcpio_dropin() {
   local baseline
   local -a hooks new
 
-  if [[ ! -r $OMACACHY_BASELINE_FILE ]]; then
-    warn "Skipping mkinitcpio baseline drop-in (no baseline recorded)"
-    return 0
+  if [[ -r $OMACACHY_BASELINE_FILE ]]; then
+    baseline=$(<"$OMACACHY_BASELINE_FILE")
+  else
+    # Fallback: use the current /etc/mkinitcpio.conf HOOKS rather than skipping.
+    # Skipping would leave Omarchy's drop-in free to pick the wrong overlay hook.
+    local raw
+    raw=$(awk '/^HOOKS=\(/{flag=1} flag{printf "%s ", $0} flag && /\)/{exit}' /etc/mkinitcpio.conf 2>/dev/null || true)
+    raw=$(printf '%s' "$raw" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')
+    baseline=${raw#HOOKS=(}
+    baseline=${baseline%)}
+    if [[ -n $baseline ]]; then
+      warn "No mkinitcpio baseline recorded; falling back to /etc/mkinitcpio.conf HOOKS"
+    else
+      warn "Skipping mkinitcpio baseline drop-in (no baseline recorded)"
+      return 0
+    fi
   fi
 
-  baseline=$(<"$OMACACHY_BASELINE_FILE")
   read -r -a hooks <<<"$baseline"
 
   # Omarchy needs a btrfs overlay hook, and limine-mkinitcpio-hook ships two:
@@ -83,6 +95,12 @@ write_mkinitcpio_dropin() {
   if [[ " ${hooks[*]} " == *" systemd "* ]]; then
     overlay_hook=sd-btrfs-overlayfs
     overlay_remove=btrfs-overlayfs
+  fi
+  # Busybox-only markers: if present, sd-btrfs-overlayfs is invalid even if a
+  # stale/bad baseline somehow contained "systemd".
+  if [[ " ${hooks[*]} " == *" udev "* || " ${hooks[*]} " == *" encrypt "* || " ${hooks[*]} " == *" keymap "* || " ${hooks[*]} " == *" consolefont "* ]]; then
+    overlay_hook=btrfs-overlayfs
+    overlay_remove=sd-btrfs-overlayfs
   fi
 
   # Normalize an existing overlay hook to the initramfs type: a busybox initramfs
