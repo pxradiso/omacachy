@@ -201,7 +201,7 @@ status_main() {
   local version
   version=$(pkg_version omarchy 2>/dev/null || true)
 
-  printf 'OmaCachy:        %s\n' "$OMACACHY_VERSION"
+  printf 'OmaCachy:        v%s\n' "$OMACACHY_VERSION"
   printf 'Channel:         %s\n' "$OMACACHY_CHANNEL"
   printf 'Omarchy:         %s\n' "${version:-not installed}"
   printf 'Repository:      %s\n' "$OMACACHY_OMARCHY_REPO"
@@ -255,7 +255,7 @@ case $command in
     apply_omacachy_fixes update
     success "OmaCachy fixes/guards applied"
     ;;
-  version | --version | -V) echo "OmaCachy $OMACACHY_VERSION" ;;
+  version | --version | -V) echo "OmaCachy v$OMACACHY_VERSION" ;;
   help | --help | -h) usage ;;
   *)
     error "Unknown command: $command"
