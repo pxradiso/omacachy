@@ -126,6 +126,10 @@ EOF
     success "OmaCachy is already up to date ($before)"
   else
     info "Update available: $before -> $after"
+    info "Commits:"
+    omacachy_git --no-pager log --pretty=format:'  - %h %s' "HEAD..origin/$branch" || true
+    printf '\n'
+
     if (( dry || DRY_RUN )); then
       info "would run: git -C $repo pull --ff-only origin $branch"
       if (( do_fix )); then
